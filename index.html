@@ -106,6 +106,7 @@
 
       <div class="rec-buttons">
         <button id="mirrorToggle" class="btn-toggle" title="تبديل المرآة">عرض طبيعي</button>
+        <button id="rotateToggle" class="btn-toggle" title="تدوير الفيديو">تدوير: تلقائي</button>
         <button id="recCancel" class="btn-cancel">إلغاء</button>
         <div class="muted" id="recHint">إغماض العين → يسار → يمين → يسار → ابتسم — كل خطوة 5 ثوانٍ</div>
       </div>
@@ -141,7 +142,8 @@
     let recordedChunks = [];
     let faceModel = null;
     let rafId = null;
-    let previewMirror = false; // controls only visible preview (default: natural)
+    let previewMirror = false; // visible preview horizontal flip
+    let previewRotation = 'auto'; // 'auto' | 0 | 90 | 270  (90 means rotate 90deg cw)
 
     /* DOM refs */
     const app = document.getElementById('app');
@@ -155,6 +157,7 @@
     const recProg = document.getElementById('recProg');
     const recCancel = document.getElementById('recCancel');
     const mirrorToggle = document.getElementById('mirrorToggle');
+    const rotateToggle = document.getElementById('rotateToggle');
     const topStatus = document.getElementById('topStatus');
     const procCanvas = document.getElementById('procCanvas');
 
@@ -422,7 +425,7 @@
       };
     }
 
-    /* Recording helpers and the corrected createPortraitCanvasAndPreview function */
+    /* Recording helpers and improved createPortraitCanvasAndPreview function */
     async function startCameraForRecording() {
       if (mediaStream) return mediaStream;
       try {
@@ -439,19 +442,16 @@
     }
     function stopCameraForRecording() { try { if (mediaStream) { mediaStream.getTracks().forEach(t => t.stop()); mediaStream = null; } } catch(e){} }
 
-    // Robust portrait canvas preview/drawing function (try opposite rotation -90deg)
+    // More flexible portrait canvas preview/drawing with manual rotate control.
     function createPortraitCanvasAndPreview(videoEl) {
-      // Target recording resolution (portrait)
       const targetW = 720;
       const targetH = 1280;
 
-      // offscreen canvas used for recording frames (natural orientation, non-mirrored)
       const offscreen = document.createElement('canvas');
       offscreen.width = targetW;
       offscreen.height = targetH;
       const ctx = offscreen.getContext('2d');
 
-      // visible preview canvas (in UI)
       const preview = previewCanvas;
       const DPR = window.devicePixelRatio || 1;
       preview.width = Math.round(targetW * DPR);
@@ -459,7 +459,7 @@
       preview.style.width = '100%';
       preview.style.height = '100%';
       const pctx = preview.getContext('2d');
-      pctx.setTransform(DPR,0,0,DPR,0,0); // support high-DPI
+      pctx.setTransform(DPR,0,0,DPR,0,0);
 
       let cancelled = false;
 
@@ -469,41 +469,43 @@
         const vh = videoEl.videoHeight || 1;
 
         if (vw > 0 && vh > 0) {
-          // clear and fill background
           ctx.fillStyle = '#000';
           ctx.fillRect(0,0,targetW,targetH);
 
           try {
-            // Draw the current video frame into a source canvas first
+            // draw source frame
             const src = document.createElement('canvas');
             src.width = vw;
             src.height = vh;
             const sctx = src.getContext('2d');
             sctx.drawImage(videoEl, 0, 0, vw, vh);
 
-            let rotatedCanvas = src;
+            // decide rotation to use:
+            // previewRotation can be 'auto' | 0 | 90 | 270
+            let useRotation = 0;
+            if (previewRotation === 'auto') {
+              // If source is landscape, rotate 90deg to become portrait.
+              useRotation = (vw > vh) ? 90 : 0;
+            } else {
+              useRotation = previewRotation;
+            }
 
-            if (vw > vh) {
-              // Source is landscape: rotate it to become upright portrait.
-              // NOTE: using -90deg rotation here (opposite of previous attempt).
+            let rotatedCanvas = src;
+            if (useRotation === 90 || useRotation === 270) {
               const rot = document.createElement('canvas');
-              rot.width = vh;   // rotated width becomes source height
-              rot.height = vw;  // rotated height becomes source width
+              rot.width = (useRotation === 90 || useRotation === 270) ? vh : vw;
+              rot.height = (useRotation === 90 || useRotation === 270) ? vw : vh;
               const rctx = rot.getContext('2d');
 
-              // rotate -90 degrees (counter-clockwise)
               rctx.translate(rot.width / 2, rot.height / 2);
-              rctx.rotate(-Math.PI / 2);
-              // draw the source centered into rotated canvas
+              if (useRotation === 90) rctx.rotate(Math.PI / 2);
+              else rctx.rotate(-Math.PI / 2);
               rctx.drawImage(src, -vw / 2, -vh / 2, vw, vh);
 
               rotatedCanvas = rot;
-              // debug log to help identify which rotation applied
-              // (remove in production if desired)
-              // console.log('Applied rotation: -90deg (vw>vh)');
             }
 
-            // center-crop from rotatedCanvas to offscreen with cover scaling
+            // center-crop with cover scaling into offscreen targetW x targetH
             const scale = Math.max(targetW / rotatedCanvas.width, targetH / rotatedCanvas.height);
             const srcW = Math.round(targetW / scale);
             const srcH = Math.round(targetH / scale);
@@ -511,12 +513,10 @@
             const sy = Math.round((rotatedCanvas.height - srcH) / 2);
             ctx.drawImage(rotatedCanvas, sx, sy, srcW, srcH, 0, 0, targetW, targetH);
           } catch (err) {
-            // ignore occasional drawing issues
             console.warn('drawLoop draw error', err);
           }
 
-          // Draw to preview canvas.
-          // previewMirror flag only affects the visible preview (user's expectation).
+          // draw to visible preview (mirror option only affects visible canvas)
           try {
             pctx.clearRect(0,0, preview.width, preview.height);
             if (previewMirror) {
@@ -603,7 +603,9 @@
       recProg.style.width = '0%';
       recCountdown.textContent = '--s';
       previewMirror = false;
+      previewRotation = 'auto';
       mirrorToggle.textContent = 'عرض طبيعي';
+      rotateToggle.textContent = 'تدوير: تلقائي';
 
       try {
         const stream = await startCameraForRecording();
@@ -680,6 +682,14 @@
     mirrorToggle.addEventListener('click', () => {
       previewMirror = !previewMirror;
       mirrorToggle.textContent = previewMirror ? 'عرض مرآة' : 'عرض طبيعي';
+    });
+
+    // rotateToggle cycles between 'auto', 0, 90, 270
+    rotateToggle.addEventListener('click', () => {
+      if (previewRotation === 'auto') { previewRotation = 0; rotateToggle.textContent = 'تدوير: 0°'; }
+      else if (previewRotation === 0) { previewRotation = 90; rotateToggle.textContent = 'تدوير: 90°'; }
+      else if (previewRotation === 90) { previewRotation = 270; rotateToggle.textContent = 'تدوير: 270°'; }
+      else { previewRotation = 'auto'; rotateToggle.textContent = 'تدوير: تلقائي'; }
     });
 
     window.addEventListener('beforeunload', (e) => { if (mediaStream) { e.preventDefault(); e.returnValue = ''; } });
