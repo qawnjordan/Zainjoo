@@ -439,7 +439,7 @@
     }
     function stopCameraForRecording() { try { if (mediaStream) { mediaStream.getTracks().forEach(t => t.stop()); mediaStream = null; } } catch(e){} }
 
-    // Robust portrait canvas preview/drawing function (fixed rotation & center-crop)
+    // Robust portrait canvas preview/drawing function (try opposite rotation -90deg)
     function createPortraitCanvasAndPreview(videoEl) {
       // Target recording resolution (portrait)
       const targetW = 720;
@@ -485,19 +485,22 @@
 
             if (vw > vh) {
               // Source is landscape: rotate it to become upright portrait.
-              // We'll rotate 90deg clockwise so the face appears upright.
+              // NOTE: using -90deg rotation here (opposite of previous attempt).
               const rot = document.createElement('canvas');
               rot.width = vh;   // rotated width becomes source height
               rot.height = vw;  // rotated height becomes source width
               const rctx = rot.getContext('2d');
 
-              // rotate 90 degrees clockwise around center
+              // rotate -90 degrees (counter-clockwise)
               rctx.translate(rot.width / 2, rot.height / 2);
-              rctx.rotate(Math.PI / 2);
+              rctx.rotate(-Math.PI / 2);
               // draw the source centered into rotated canvas
               rctx.drawImage(src, -vw / 2, -vh / 2, vw, vh);
 
               rotatedCanvas = rot;
+              // debug log to help identify which rotation applied
+              // (remove in production if desired)
+              // console.log('Applied rotation: -90deg (vw>vh)');
             }
 
             // center-crop from rotatedCanvas to offscreen with cover scaling
