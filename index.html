@@ -1,0 +1,202 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>التحقق من هويتك</title>
+  <style>
+    :root{
+      --accent:#2f9fff;
+      --text:#333;
+      --muted:#6b6b6b;
+      --bg:#ffffff;
+      --radius:14px;
+      --maxw:420px;
+      --mobile-padding:22px;
+      --btn-height:58px;
+    }
+    html,body{
+      height:100%;
+      margin:0;
+      font-family: "Segoe UI", Tahoma, "Helvetica Neue", Arial, "Noto Sans Arabic", sans-serif;
+      background:linear-gradient(180deg,#f7f9fc 0%, #ffffff 100%);
+      color:var(--text);
+      -webkit-font-smoothing:antialiased;
+      -moz-osx-font-smoothing:grayscale;
+    }
+
+    .page {
+      max-width:var(--maxw);
+      margin:0 auto;
+      min-height:100vh;
+      display:flex;
+      flex-direction:column;
+      align-items:stretch;
+      justify-content:flex-start;
+      position:relative;
+      background:transparent;
+    }
+
+    .topbar{
+      padding:14px var(--mobile-padding);
+      display:flex;
+      justify-content:flex-start;
+      align-items:center;
+    }
+    .back {
+      margin-inline-start:auto;
+      width:36px;
+      height:36px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      border-radius:999px;
+      color:var(--muted);
+      cursor:pointer;
+      user-select:none;
+    }
+    .back svg{ width:18px; height:18px; }
+
+    .card {
+      background:var(--bg);
+      margin:0 auto;
+      padding:0 var(--mobile-padding);
+      flex:1 1 auto;
+      display:flex;
+      flex-direction:column;
+      align-items:stretch;
+    }
+
+    .visual {
+      margin-top:6px;
+      display:flex;
+      justify-content:center;
+      align-items:center;
+      padding-top:6px;
+      padding-bottom:8px;
+    }
+
+    .phone-img {
+      width:220px;
+      max-width:64%;
+      height:auto;
+      border-radius:10px;
+      box-shadow:0 18px 30px rgba(47,159,255,0.06), 0 6px 12px rgba(30,30,30,0.04);
+      background:#fff;
+      object-fit:cover;
+      display:block;
+    }
+
+    h1 {
+      margin:18px 0 6px 0;
+      font-size:20px;
+      text-align:center;
+      color:var(--accent);
+      font-weight:700;
+    }
+    p.lead {
+      margin:0 0 18px 0;
+      text-align:center;
+      color:var(--muted);
+      font-size:15px;
+    }
+
+    .tips {
+      margin-top:8px;
+      display:block;
+      padding:8px 0 120px 0;
+    }
+    .tips ul{
+      list-style: disc;
+      padding-inline-start:22px;
+      margin:10px 6px;
+      color:var(--text);
+      line-height:1.9;
+      font-size:16px;
+    }
+    .tips ul { direction: rtl; }
+    .tips ul li { text-align: right; }
+
+    .bottom {
+      position:fixed;
+      left:0;
+      right:0;
+      bottom:18px;
+      display:flex;
+      justify-content:center;
+      pointer-events:none;
+    }
+    .btn-wrap{
+      width:100%;
+      max-width:var(--maxw);
+      padding:0 var(--mobile-padding);
+      pointer-events:auto;
+    }
+    .btn {
+      width:100%;
+      height:var(--btn-height);
+      background:linear-gradient(180deg,var(--accent), #1b88e6);
+      border-radius:28px;
+      color:#fff;
+      font-size:18px;
+      font-weight:600;
+      border:0;
+      cursor:pointer;
+      box-shadow:0 6px 20px rgba(47,159,255,0.18);
+    }
+
+    @media (max-width:420px){
+      .phone-img{ width:56%; }
+      .btn { height:54px; font-size:17px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page" role="main" aria-label="صفحة التحقق من الهوية">
+    <div class="topbar" aria-hidden="false">
+      <div class="back" title="رجوع" onclick="history.back()">
+        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path d="M8 5l7 7-7 7" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="visual" aria-hidden="true">
+        <!-- استبدلت رسم الوجه بالصورة المطلوبة -->
+        <img
+          src="https://l.top4top.io/p_36648bqr85.jpeg"
+          alt="صورة توضيحية للوجه"
+          class="phone-img"
+        />
+      </div>
+
+      <main style="padding:0 6px;">
+        <h1>التحقق من هويتك</h1>
+        <p class="lead">سنبدأ بالتقاط الصورة لك.</p>
+
+        <section class="tips" aria-labelledby="tips-heading">
+          <ul id="tips-heading">
+            <li>ضع وجهك في الإطار</li>
+            <li>التقط صورة حية (الصور القديمة مرفوضة)</li>
+            <li>أزل القبعة أو النظارات</li>
+          </ul>
+        </section>
+      </main>
+    </div>
+
+    <div class="bottom" role="navigation" aria-label="الأزرار">
+      <div class="btn-wrap">
+        <button class="btn" onclick="onNext()" aria-label="التالي">التالي</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function onNext(){
+      // سلوك افتراضي بسيط عند الضغط - يمكن تغييره حسب المطلوب
+      alert('تم الضغط على التالي (محاكاة)');
+    }
+  </script>
+</body>
+</html>
